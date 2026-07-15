@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS books (
     cover_mime VARCHAR(64) NULL,
     spine_image MEDIUMBLOB NULL,
     spine_mime VARCHAR(64) NULL,
+    spine_ratio DECIMAL(5, 3) NULL,
     date_read DATE NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -92,6 +93,7 @@ interface BookRow {
     spineTextColor: string;
     hasCover: number;
     hasSpineImage: number;
+    spineRatio: string | null;
     dateRead: string | null;
 }
 
@@ -102,6 +104,7 @@ async function listBooks(): Promise<Response> {
             spine_color AS spineColor, spine_text_color AS spineTextColor,
             (cover_image IS NOT NULL) AS hasCover,
             (spine_image IS NOT NULL) AS hasSpineImage,
+            spine_ratio AS spineRatio,
             date_read AS dateRead
         FROM books
         ORDER BY id ASC`,
@@ -110,6 +113,7 @@ async function listBooks(): Promise<Response> {
         ...r,
         hasCover: Boolean(r.hasCover),
         hasSpineImage: Boolean(r.hasSpineImage),
+        spineRatio: r.spineRatio === null ? null : Number(r.spineRatio),
     }));
     return json(books);
 }
@@ -151,6 +155,34 @@ function formInt(
     return Math.min(hi, Math.max(lo, n));
 }
 
+function formFloat(
+    v: FormDataEntryValue | null,
+    lo: number,
+    hi: number,
+): number | null {
+    if (typeof v !== "string" || v.trim() === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.min(hi, Math.max(lo, n));
+}
+
+function formHexColor(v: FormDataEntryValue | null): string | null {
+    const s = typeof v === "string" ? v.trim().toLowerCase() : "";
+    return /^#[0-9a-f]{6}$/.test(s) ? s : null;
+}
+
+async function fileBlob(
+    v: FormDataEntryValue | null,
+): Promise<[Buffer, string] | [null, null]> {
+    if (v instanceof File && v.size > 0) {
+        return [
+            Buffer.from(await v.arrayBuffer()),
+            v.type || "application/octet-stream",
+        ];
+    }
+    return [null, null];
+}
+
 async function uniqueSlug(title: string): Promise<string> {
     const base =
         title
@@ -176,19 +208,15 @@ async function createBook(req: Request): Promise<Response> {
         return json({ error: "title and author are required" }, 400);
     }
 
-    let coverImage: Buffer | null = null;
-    let coverMime: string | null = null;
-    const cover = form.get("cover");
-    if (cover instanceof File && cover.size > 0) {
-        coverImage = Buffer.from(await cover.arrayBuffer());
-        coverMime = cover.type || "application/octet-stream";
-    }
+    const [coverImage, coverMime] = await fileBlob(form.get("cover"));
+    const [spineImage, spineMime] = await fileBlob(form.get("spine"));
 
     const slug = await uniqueSlug(title);
     await pool.query(
         `INSERT INTO books (slug, title, author, synopsis, review, rating,
-            pages, cover_image, cover_mime, date_read)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            pages, spine_color, cover_image, cover_mime,
+            spine_image, spine_mime, spine_ratio, date_read)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             slug,
             title,
@@ -197,8 +225,12 @@ async function createBook(req: Request): Promise<Response> {
             formStr(form.get("review")),
             formInt(form.get("rating"), 0, 5) ?? 0,
             formInt(form.get("pages"), 1, 65535),
+            formHexColor(form.get("spineColor")) ?? "#7ab8e0",
             coverImage,
             coverMime,
+            spineImage,
+            spineMime,
+            formFloat(form.get("spineRatio"), 0.5, 20),
             formStr(form.get("dateRead")),
         ],
     );
@@ -207,6 +239,9 @@ async function createBook(req: Request): Promise<Response> {
 
 await waitForDb();
 await pool.query(SCHEMA);
+await pool
+    .query("ALTER TABLE books ADD COLUMN spine_ratio DECIMAL(5, 3) NULL")
+    .catch(() => {});
 
 Bun.serve({
     port: PORT,

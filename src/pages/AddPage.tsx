@@ -13,13 +13,62 @@ const EMPTY = {
     review: "",
 };
 
+function analyzeSpine(file: File): Promise<{ color: string; ratio: number }> {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            const stripH = Math.max(1, Math.round(h * 0.12));
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = stripH;
+            const ctx = canvas.getContext("2d");
+            URL.revokeObjectURL(url);
+            if (!ctx || !w || !h) {
+                reject(new Error("no canvas"));
+                return;
+            }
+            ctx.drawImage(img, 0, 0);
+            const { data } = ctx.getImageData(0, 0, w, stripH);
+            let r = 0;
+            let g = 0;
+            let b = 0;
+            const n = data.length / 4;
+            for (let i = 0; i < data.length; i += 4) {
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+            }
+            const hex = (v: number) =>
+                Math.round(v / n)
+                    .toString(16)
+                    .padStart(2, "0");
+            resolve({ color: `#${hex(r)}${hex(g)}${hex(b)}`, ratio: h / w });
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("bad image"));
+        };
+        img.src = url;
+    });
+}
+
 export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
     const [fields, setFields] = useState(EMPTY);
     const [cover, setCover] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
+    const [spine, setSpine] = useState<File | null>(null);
+    const [spinePreview, setSpinePreview] = useState<string | null>(null);
+    const [spineMeta, setSpineMeta] = useState<{
+        color: string;
+        ratio: number;
+    } | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
+    const spineRef = useRef<HTMLInputElement>(null);
 
     const set = (key: keyof typeof EMPTY) => (value: string) =>
         setFields((f) => ({ ...f, [key]: value }));
@@ -34,6 +83,21 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
         });
     }
 
+    async function pickSpine(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSpine(file);
+        setSpinePreview((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(file);
+        });
+        try {
+            setSpineMeta(await analyzeSpine(file));
+        } catch {
+            setSpineMeta(null);
+        }
+    }
+
     async function submit(e: FormEvent) {
         e.preventDefault();
         if (!fields.title.trim() || !fields.author.trim()) {
@@ -45,6 +109,11 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
         const data = new FormData();
         for (const [key, value] of Object.entries(fields)) data.set(key, value);
         if (cover) data.set("cover", cover);
+        if (spine) data.set("spine", spine);
+        if (spineMeta) {
+            data.set("spineColor", spineMeta.color);
+            data.set("spineRatio", String(spineMeta.ratio));
+        }
         try {
             await createBook(data);
             await onAdded();
@@ -59,7 +128,7 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
         <main className="review-page">
             <form className="review-card add-card" onSubmit={submit}>
                 <div className="review-hero">
-                    <div className="review-cover-wrap">
+                    <div className="review-cover-wrap add-media">
                         <button
                             type="button"
                             className="review-cover add-cover"
@@ -88,6 +157,36 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
                             accept="image/*"
                             hidden
                             onChange={pickCover}
+                        />
+
+                        <button
+                            type="button"
+                            className="add-spine"
+                            onClick={() => spineRef.current?.click()}
+                            style={
+                                spineMeta
+                                    ? { borderColor: spineMeta.color }
+                                    : undefined
+                            }
+                        >
+                            {spinePreview ? (
+                                <img
+                                    src={spinePreview}
+                                    alt=""
+                                    className="add-spine-thumb"
+                                />
+                            ) : (
+                                <span className="add-cover-plus" aria-hidden="true">
+                                    +
+                                </span>
+                            )}
+                        </button>
+                        <input
+                            ref={spineRef}
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={pickSpine}
                         />
                     </div>
 

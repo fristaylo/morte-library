@@ -17,6 +17,8 @@ export interface Book {
     spineTextColor: string;
     hasCover: boolean;
     hasSpineImage: boolean;
+    /** высота фото корешка / его ширина */
+    spineRatio: number | null;
     /** ISO-дата YYYY-MM-DD или null */
     dateRead: string | null;
 }
@@ -47,8 +49,13 @@ export function spineWidth(book: Book): number {
     return Math.round(Math.min(48, Math.max(22, 18 + pages / 16)));
 }
 
-/** высота корешка на полке, px */
+/** высота корешка на полке, px — из толщины и пропорций фото корешка */
 export function spineHeight(book: Book): number {
+    if (book.spineRatio) {
+        return Math.round(
+            Math.min(300, Math.max(140, spineWidth(book) * book.spineRatio)),
+        );
+    }
     return Math.round((book.heightPx ?? 250) * 0.74);
 }
 
