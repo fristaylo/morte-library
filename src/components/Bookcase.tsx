@@ -37,6 +37,50 @@ export default function Bookcase({ books }: { books: Book[] }) {
     const firstEmpty = shelves.findIndex((shelf) => shelf.length === 0);
     return (
         <section className="bookcase" aria-label="Книжный шкаф">
+            <button
+                type="button"
+                className="bookcase-inkwell"
+                aria-label="Добавить книгу"
+                onClick={() => {
+                    window.location.hash = "#/add";
+                }}
+            >
+                <span className="inkwell-quill" aria-hidden="true">
+                    <svg
+                        width="24"
+                        height="58"
+                        viewBox="0 0 24 58"
+                        fill="none"
+                        role="img"
+                        aria-label="Перо"
+                    >
+                        <path
+                            d="M21 3 C 21 3, 6 12, 4 30 C 3 40, 6 47, 9 52 L 11 55"
+                            stroke="var(--ink-soft)"
+                            strokeWidth="1.4"
+                            strokeLinecap="round"
+                        />
+                        <path
+                            d="M20 6 C 14 10, 9 18, 7 27 C 12 24, 17 17, 20 9 Z"
+                            fill="#8fa6bd"
+                            opacity="0.9"
+                        />
+                        <path
+                            d="M18 15 C 12 19, 8 26, 6 34 C 11 31, 15 25, 18 18 Z"
+                            fill="#a8bacc"
+                            opacity="0.85"
+                        />
+                        <path
+                            d="M15 24 C 10 28, 7 34, 6 41 C 10 38, 13 32, 15 26 Z"
+                            fill="#c6d3e1"
+                            opacity="0.8"
+                        />
+                        <path d="M9 52 L 11 55 L 12.5 51 Z" fill="#2f3a52" />
+                    </svg>
+                </span>
+                <span className="inkwell-drop" aria-hidden="true" />
+                <span className="inkwell-pot" aria-hidden="true" />
+            </button>
             <div className="bookcase-top" aria-hidden="true" />
             <div className="bookcase-body">
                 {shelves.map((shelf, i) => (

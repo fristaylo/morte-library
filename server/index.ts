@@ -1,5 +1,4 @@
 import mysql from "mysql2/promise";
-import { seed } from "./seed";
 
 function env(name: string): string {
     const value = process.env[name];
@@ -105,7 +104,7 @@ async function listBooks(): Promise<Response> {
             (spine_image IS NOT NULL) AS hasSpineImage,
             date_read AS dateRead
         FROM books
-        ORDER BY date_read ASC, id ASC`,
+        ORDER BY id ASC`,
     );
     const books = (rows as BookRow[]).map((r) => ({
         ...r,
@@ -136,16 +135,78 @@ async function serveImage(
     });
 }
 
+function formStr(v: FormDataEntryValue | null): string | null {
+    const s = typeof v === "string" ? v.trim() : "";
+    return s || null;
+}
+
+function formInt(
+    v: FormDataEntryValue | null,
+    lo: number,
+    hi: number,
+): number | null {
+    if (typeof v !== "string" || v.trim() === "") return null;
+    const n = Math.trunc(Number(v));
+    if (!Number.isFinite(n)) return null;
+    return Math.min(hi, Math.max(lo, n));
+}
+
+async function uniqueSlug(title: string): Promise<string> {
+    const base =
+        title
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, "-")
+            .replace(/^-+|-+$/g, "") || "kniga";
+    let slug = base;
+    for (let i = 2; ; i++) {
+        const [rows] = await pool.query(
+            "SELECT 1 FROM books WHERE slug = ? LIMIT 1",
+            [slug],
+        );
+        if ((rows as unknown[]).length === 0) return slug;
+        slug = `${base}-${i}`;
+    }
+}
+
+async function createBook(req: Request): Promise<Response> {
+    const form = await req.formData();
+    const title = formStr(form.get("title"));
+    const author = formStr(form.get("author"));
+    if (!title || !author) {
+        return json({ error: "title and author are required" }, 400);
+    }
+
+    let coverImage: Buffer | null = null;
+    let coverMime: string | null = null;
+    const cover = form.get("cover");
+    if (cover instanceof File && cover.size > 0) {
+        coverImage = Buffer.from(await cover.arrayBuffer());
+        coverMime = cover.type || "application/octet-stream";
+    }
+
+    const slug = await uniqueSlug(title);
+    await pool.query(
+        `INSERT INTO books (slug, title, author, synopsis, review, rating,
+            pages, cover_image, cover_mime, date_read)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            slug,
+            title,
+            author,
+            formStr(form.get("synopsis")),
+            formStr(form.get("review")),
+            formInt(form.get("rating"), 0, 5) ?? 0,
+            formInt(form.get("pages"), 1, 65535),
+            coverImage,
+            coverMime,
+            formStr(form.get("dateRead")),
+        ],
+    );
+    return json({ slug }, 201);
+}
+
 await waitForDb();
 await pool.query(SCHEMA);
-const [[{ n }]] = (await pool.query(
-    "SELECT COUNT(*) AS n FROM books",
-)) as unknown as [[{ n: number }]];
-if (n === 0) {
-    console.log("Empty books table, seeding...");
-    await seed(pool);
-    console.log("Seeded");
-}
 
 Bun.serve({
     port: PORT,
@@ -153,6 +214,9 @@ Bun.serve({
         const { pathname } = new URL(req.url);
         try {
             if (pathname === "/api/books") {
+                if (req.method === "POST") {
+                    return await createBook(req);
+                }
                 return await listBooks();
             }
             const m = pathname.match(

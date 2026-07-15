@@ -1,9 +1,16 @@
-import { type ReactNode, StrictMode, useEffect, useState } from "react";
+import {
+    type ReactNode,
+    StrictMode,
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { type Book, fetchBooks } from "./api";
 import Bookcase from "./components/Bookcase";
 import Scenery from "./components/Scenery";
 import "./main.scss";
+import AddPage from "./pages/AddPage";
 import ReviewPage from "./pages/ReviewPage";
 
 let shelfScroll = 0;
@@ -61,9 +68,14 @@ function App() {
     const [books, setBooks] = useState<Book[]>([]);
     const [error, setError] = useState(false);
 
+    const reload = useCallback(
+        () => fetchBooks().then(setBooks, () => setError(true)),
+        [],
+    );
+
     useEffect(() => {
-        fetchBooks().then(setBooks, () => setError(true));
-    }, []);
+        reload();
+    }, [reload]);
 
     const slug = hash.match(/^#\/book\/(.+)$/)?.[1];
     const book = slug
@@ -73,6 +85,22 @@ function App() {
     useEffect(() => {
         window.scrollTo(0, book ? 0 : shelfScroll);
     }, [book]);
+
+    if (hash === "#/add") {
+        return (
+            <>
+                <Scenery />
+                <SiteHeader
+                    right={
+                        <a className="topbar-chip" href="#/">
+                            ← в шкаф
+                        </a>
+                    }
+                />
+                <AddPage onAdded={reload} />
+            </>
+        );
+    }
 
     if (book) {
         return (

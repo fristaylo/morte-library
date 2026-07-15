@@ -27,6 +27,12 @@ export async function fetchBooks(): Promise<Book[]> {
     return res.json();
 }
 
+export async function createBook(data: FormData): Promise<{ slug: string }> {
+    const res = await fetch("/api/books", { method: "POST", body: data });
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+    return res.json();
+}
+
 export function coverUrl(book: Book): string {
     return `/api/books/${book.slug}/cover`;
 }

@@ -173,6 +173,103 @@
     box-shadow: inset 0 3px 6px rgba(255, 255, 255, 0.7);
 }
 
+.bookcase-inkwell {
+    position: absolute;
+    top: -64px;
+    right: 60px;
+    z-index: 4;
+    width: 46px;
+    height: 78px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 8px;
+    }
+}
+
+.inkwell-pot {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 34px;
+    height: 24px;
+    transform: translateX(-50%);
+    border-radius: 5px 5px 11px 11px;
+    background: linear-gradient(180deg, #3a4a60, #222b36);
+    box-shadow:
+        inset 0 3px 4px rgba(255, 255, 255, 0.16),
+        0 6px 10px -4px rgba(34, 43, 54, 0.5);
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 22px;
+        height: 8px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 40%, #2b3442, #12161d);
+    }
+}
+
+.inkwell-quill {
+    position: absolute;
+    bottom: 11px;
+    left: 50%;
+    transform-origin: bottom center;
+    transform: translateX(-24%) rotate(16deg);
+    transition: transform 0.5s cubic-bezier(0.22, 0.8, 0.3, 1);
+
+    svg {
+        display: block;
+    }
+
+    .bookcase-inkwell:hover &,
+    .bookcase-inkwell:focus-visible & {
+        transform: translate(-24%, -12px) rotate(9deg);
+    }
+}
+
+.inkwell-drop {
+    position: absolute;
+    top: 42px;
+    left: 13px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: radial-gradient(circle at 40% 30%, #56789c, #2f3a52);
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .bookcase-inkwell:hover .inkwell-drop,
+    .bookcase-inkwell:focus-visible .inkwell-drop {
+        animation: ink-drip 1.6s ease-in 0.35s infinite;
+    }
+}
+
+@keyframes ink-drip {
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.5);
+    }
+    18% {
+        opacity: 1;
+        transform: translateY(2px) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(34px) scale(0.7);
+    }
+}
+
 .bookcase-candle {
     position: relative;
     width: 16px;
