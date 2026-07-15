@@ -1,0 +1,217 @@
+.bookcase {
+    position: relative;
+    width: min(680px, 94vw);
+    margin: 0 auto;
+
+    --persp: 900px;
+    --tilt: 14deg;
+
+    --grain-v: repeating-linear-gradient(
+        90deg,
+        rgba(120, 140, 165, 0.05) 0 1px,
+        rgba(255, 255, 255, 0) 1px 3px
+    );
+    --grain-h: repeating-linear-gradient(
+        0deg,
+        rgba(120, 140, 165, 0.06) 0 1px,
+        rgba(255, 255, 255, 0) 1px 3px
+    );
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 40px 0 0;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-float);
+        z-index: -1;
+    }
+}
+
+.bookcase-top {
+    position: relative;
+    height: 30px;
+    margin: 0 -10px;
+    background:
+        linear-gradient(
+            180deg,
+            var(--case-1) 0%,
+            var(--case-2) 34%,
+            rgba(70, 95, 125, 0.1) 44%,
+            var(--case-1) 46%,
+            var(--case-2) 70%,
+            rgba(70, 95, 125, 0.1) 82%,
+            var(--case-1) 84%,
+            var(--case-3) 100%
+        ),
+        var(--grain-v);
+    border-radius: 3px 3px 0 0;
+    box-shadow:
+        inset 0 2px 3px rgba(255, 255, 255, 0.9),
+        0 10px 16px -10px rgba(70, 95, 125, 0.28);
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        bottom: 100%;
+        height: 46px;
+        transform-origin: 50% 100%;
+        transform: perspective(var(--persp)) rotateX(calc(90deg - var(--tilt)));
+        background:
+            linear-gradient(180deg, #ffffff, #e6ebf2 80%, var(--case-3)),
+            var(--grain-h);
+        border-radius: 4px 4px 0 0;
+        box-shadow:
+            inset 0 0 0 1px rgba(201, 210, 222, 0.55),
+            inset 0 3px 5px rgba(255, 255, 255, 0.85),
+            inset 0 -6px 10px -4px rgba(70, 95, 125, 0.18);
+    }
+}
+
+.bookcase-body {
+    position: relative;
+    padding: 26px 42px 6px;
+    background:
+        linear-gradient(90deg, var(--case-1), var(--case-2)) left top / 24px
+            100% no-repeat,
+        linear-gradient(270deg, var(--case-1), var(--case-2)) right top / 24px
+            100% no-repeat,
+        var(--grain-v),
+        linear-gradient(180deg, #dbe1ea, #eef1f6);
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 6px 30px;
+        pointer-events: none;
+        border-radius: 3px;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.7),
+            inset 0 0 0 1px rgba(143, 164, 189, 0.2),
+            inset 0 8px 18px -12px rgba(40, 58, 82, 0.35);
+    }
+}
+
+.bookcase-books {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 5px;
+    min-height: 214px;
+    padding-top: 35px;
+    padding-bottom: 10px;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0 -18px;
+        pointer-events: none;
+        background: linear-gradient(
+            180deg,
+            rgba(40, 58, 82, 0.16) 0%,
+            rgba(40, 58, 82, 0.04) 20%,
+            rgba(40, 58, 82, 0) 50%,
+            rgba(40, 58, 82, 0.12) 100%
+        );
+        box-shadow:
+            inset 0 16px 20px -12px rgba(30, 46, 68, 0.55),
+            inset 22px 0 26px -22px rgba(30, 46, 68, 0.45),
+            inset -22px 0 26px -22px rgba(30, 46, 68, 0.45);
+    }
+}
+
+.bookcase-board {
+    position: relative;
+    z-index: 0;
+    height: 15px;
+    margin: -6px -18px 0;
+    background: linear-gradient(
+            180deg,
+            var(--case-1) 0%,
+            var(--case-2) 55%,
+            var(--case-edge) 100%
+        ),
+        var(--grain-h);
+    border-radius: 2px;
+    box-shadow: 0 12px 18px -6px rgba(70, 95, 125, 0.2);
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        height: 12px;
+        transform-origin: 50% 100%;
+        transform: perspective(var(--persp)) rotateX(calc(70deg - var(--tilt)));
+        background:
+            linear-gradient(180deg, #f6f8fc, #dde4ee),
+            var(--grain-h);
+        box-shadow:
+            inset 0 1px 2px rgba(255, 255, 255, 0.8),
+            inset 0 -4px 6px -3px rgba(70, 95, 125, 0.25);
+    }
+}
+
+.bookcase-plinth {
+    position: relative;
+    height: 34px;
+    margin: 0 -6px;
+    background:
+        linear-gradient(
+            180deg,
+            var(--case-1) 0%,
+            var(--case-2) 22%,
+            rgba(70, 95, 125, 0.12) 34%,
+            var(--case-2) 38%,
+            var(--case-edge) 100%
+        ),
+        var(--grain-v);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    box-shadow: inset 0 3px 6px rgba(255, 255, 255, 0.7);
+}
+
+.bookcase-candle {
+    position: relative;
+    width: 16px;
+    height: 34px;
+    margin: 0 12px;
+    border-radius: 3px 3px 2px 2px;
+    background: linear-gradient(
+        90deg,
+        #fffdf8,
+        #f6f1e4 45%,
+        var(--paper-2) 100%
+    );
+    box-shadow: 0 4px 8px rgba(70, 95, 125, 0.16);
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: -14px;
+        left: 50%;
+        width: 8px;
+        height: 12px;
+        transform: translateX(-50%);
+        border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+        background: radial-gradient(
+            circle at 50% 75%,
+            var(--blush-deep),
+            var(--blush) 75%
+        );
+        box-shadow: 0 0 14px 2px rgba(238, 205, 209, 0.8);
+    }
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 2px;
+        height: 4px;
+        transform: translateX(-50%);
+        background: var(--ink-soft);
+    }
+}

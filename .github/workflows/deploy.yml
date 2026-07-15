@@ -29,6 +29,14 @@ jobs:
                   push: true
                   tags: ghcr.io/${{ github.repository }}:latest
 
+            - name: Build and push API
+              uses: docker/build-push-action@v6
+              with:
+                  context: .
+                  target: api
+                  push: true
+                  tags: ghcr.io/${{ github.repository }}:api
+
     deploy:
         needs: build-and-push
         runs-on: ubuntu-latest
@@ -47,6 +55,7 @@ jobs:
                       cd morte-library
                       git reset --hard HEAD
                       git pull
+                      if [ ! -f .env ]; then cp .env.example .env; fi
                       echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
                       sudo docker system prune -a -f || true
                       docker compose pull
