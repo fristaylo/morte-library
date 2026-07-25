@@ -1,25 +1,20 @@
+import { type RefObject, useEffect, useRef, useState } from "react";
 import type { Book } from "../api";
 import { spineWidth } from "../api";
 import BookSpine from "./BookSpine";
 import "./Bookcase.scss";
 
-/*
- * Inner shelf width budget, px — must match Bookcase.scss:
- * min(680px, 94vw) cabinet − 2 × (24px wall + 18px inner padding).
- * ponytail: packing assumes the 680px case; under 680px the spines
- * flex-shrink slightly instead of re-packing per viewport.
- */
-const SHELF_WIDTH = 596;
-const BOOK_GAP = 5;
+const BOOK_GAP = 6;
 const MIN_SHELVES = 6;
+const DEFAULT_SHELF_WIDTH = 936;
 
-function packShelves(books: Book[]): Book[][] {
+function packShelves(books: Book[], shelfWidth: number): Book[][] {
     const shelves: Book[][] = [];
     let row: Book[] = [];
     let used = 0;
     for (const book of books) {
         const w = spineWidth(book);
-        if (row.length > 0 && used + BOOK_GAP + w > SHELF_WIDTH) {
+        if (row.length > 0 && used + BOOK_GAP + w > shelfWidth) {
             shelves.push(row);
             row = [];
             used = 0;
@@ -32,8 +27,29 @@ function packShelves(books: Book[]): Book[][] {
     return shelves;
 }
 
+function useShelfWidth(ref: RefObject<HTMLElement | null>): number {
+    const [width, setWidth] = useState(DEFAULT_SHELF_WIDTH);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const measure = () => {
+            const cs = getComputedStyle(el);
+            const pad =
+                parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+            setWidth(Math.max(160, el.clientWidth - pad));
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [ref]);
+    return width;
+}
+
 export default function Bookcase({ books }: { books: Book[] }) {
-    const shelves = packShelves(books);
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const shelfWidth = useShelfWidth(bodyRef);
+    const shelves = packShelves(books, shelfWidth);
     const firstEmpty = shelves.findIndex((shelf) => shelf.length === 0);
     return (
         <section className="bookcase" aria-label="Книжный шкаф">
@@ -82,7 +98,7 @@ export default function Bookcase({ books }: { books: Book[] }) {
                 <span className="inkwell-pot" aria-hidden="true" />
             </button>
             <div className="bookcase-top" aria-hidden="true" />
-            <div className="bookcase-body">
+            <div className="bookcase-body" ref={bodyRef}>
                 {shelves.map((shelf, i) => (
                     <div
                         className="bookcase-shelf"

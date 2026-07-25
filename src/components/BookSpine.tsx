@@ -56,7 +56,9 @@ export default function BookSpine({ book }: { book: Book }) {
                     </>
                 )}
             </span>
-            <span className="book-face book-top" aria-hidden="true" />
+            <span className="book-face book-top" aria-hidden="true">
+                <span className="book-pages" />
+            </span>
         </button>
     );
 }

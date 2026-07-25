@@ -2,12 +2,6 @@ import { useEffect, useRef } from "react";
 import { create } from "klouds";
 import "./Scenery.scss";
 
-/* Небо и дрейфующие облачные гряды — один WebGL-canvas (klouds, ~9кб,
-   один fullscreen-quad шейдер): вся анимация на GPU, main thread пуст.
-   Горы и туман — статичные: один SVG с градиентами + один div. */
-
-/* ── горы (viewBox 1440×560, низ экрана) ─────────────────────── */
-
 const RIDGE_FAR =
     "M0 296 L74 246 L128 272 L214 196 L306 258 L398 188 L470 242 " +
     "L556 210 L640 262 L724 186 L812 248 L896 222 L988 272 L1074 198 " +
@@ -23,7 +17,6 @@ const SNOW_MID =
     "M558 245 L592 204 L626 244 L612 234 L595 250 L578 238 Z " +
     "M914 279 L948 238 L982 278 L968 268 L951 284 L934 271 Z";
 
-/* долина слева, массив с главным пиком справа — как на референсе */
 const RIDGE_NEAR =
     "M0 432 L96 396 L208 428 L318 402 L428 438 L548 410 L668 442 " +
     "L790 416 L880 372 L968 300 L1056 220 L1150 148 L1226 214 " +
@@ -33,7 +26,6 @@ const SNOW_NEAR =
     "M1108 184 L1150 148 L1192 186 L1176 174 L1156 192 L1132 178 Z " +
     "M1262 212 L1290 186 L1318 212 L1306 204 L1292 218 L1276 208 Z";
 
-/* зубчатая кромка леса вдоль долины — один путь, строится один раз */
 const TREELINE = (() => {
     const base = (x: number) =>
         500 - 26 * Math.sin(x / 210) - 14 * Math.sin(x / 87);
@@ -58,6 +50,9 @@ export default function Scenery() {
         if (!canvas) {
             return;
         }
+        const reducedMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+        ).matches;
         const clouds = create({
             selector: canvas,
             speed: 0.2,
@@ -66,13 +61,25 @@ export default function Scenery() {
             cloudColor1: [219, 228, 238],
             cloudColor2: [255, 255, 255],
         });
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-            /* один кадр отрисовать — и заморозить */
+        canvas.style.width = "56%";
+        if (reducedMotion) {
             requestAnimationFrame(() =>
                 requestAnimationFrame(() => clouds.stop()),
             );
+            return () => clouds.stop();
         }
-        return () => clouds.stop();
+        const onVisibility = () => {
+            if (document.hidden) {
+                clouds.stop();
+            } else {
+                clouds.start();
+            }
+        };
+        document.addEventListener("visibilitychange", onVisibility);
+        return () => {
+            document.removeEventListener("visibilitychange", onVisibility);
+            clouds.stop();
+        };
     }, []);
 
     return (
@@ -106,7 +113,6 @@ export default function Scenery() {
                 <path fill="url(#sc-far)" d={RIDGE_FAR} />
                 <path fill="url(#sc-mid)" d={RIDGE_MID} />
                 <path fill="#fff" opacity="0.92" d={SNOW_MID} />
-                {/* пояс тумана между хребтами */}
                 <rect
                     fill="url(#sc-belt)"
                     x="0"

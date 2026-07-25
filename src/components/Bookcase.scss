@@ -1,9 +1,9 @@
 .bookcase {
     position: relative;
-    width: min(680px, 94vw);
+    width: min(1024px, 96vw);
     margin: 0 auto;
 
-    --persp: 900px;
+    --persp: 1400px;
     --tilt: 14deg;
 
     --grain-v: repeating-linear-gradient(
@@ -93,15 +93,20 @@
     }
 }
 
+.bookcase-shelf {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 280px;
+}
+
 .bookcase-books {
     position: relative;
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 5px;
-    min-height: 214px;
-    padding-top: 35px;
-    padding-bottom: 10px;
+    gap: 6px;
+    min-height: 290px;
+    padding-top: 48px;
+    padding-bottom: 12px;
 
     &::before {
         content: "";
@@ -310,5 +315,21 @@
         height: 4px;
         transform: translateX(-50%);
         background: var(--ink-soft);
+    }
+}
+
+@media (max-width: 640px) {
+    .bookcase-body {
+        padding: 20px 16px 6px;
+    }
+
+    .bookcase-books {
+        gap: 4px;
+        min-height: 300px;
+        padding-top: 40px;
+    }
+
+    .bookcase-inkwell {
+        right: 22px;
     }
 }

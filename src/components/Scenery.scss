@@ -1,7 +1,3 @@
-/* Фиксированный фон: WebGL-небо с облаками (klouds), статичный SVG гор,
-   статичный туман. Ни одной CSS-анимации, ни одного scroll-листенера,
-   ни одного filter/blur — лагать нечему. */
-
 .scenery {
     position: fixed;
     inset: 0;
@@ -9,7 +5,6 @@
     overflow: hidden;
     pointer-events: none;
 
-    /* тёплое зарево в зените — статичный градиент поверх canvas */
     &::after {
         content: "";
         position: absolute;
@@ -22,16 +17,13 @@
     }
 }
 
-/* canvas рендерится в 56% ширины и растягивается scaleX(1.8):
-   круглые комки шейдера превращаются в плоские вытянутые гряды,
-   заодно рендерится вдвое меньше пикселей */
 .scenery-sky {
     position: absolute;
     inset: 0;
     width: 56%;
     height: 100%;
     display: block;
-    transform: scaleX(1.3);
+    transform: scaleX(1.8);
     transform-origin: left center;
 }
 
@@ -44,7 +36,6 @@
     height: 62vh;
 }
 
-/* туман у подножия — растворяет горизонт в цвет страницы */
 .scenery-fog {
     position: absolute;
     left: 0;

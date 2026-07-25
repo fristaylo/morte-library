@@ -43,25 +43,24 @@ export function spineImageUrl(book: Book): string {
     return `/api/books/${book.slug}/spine`;
 }
 
-/** ширина корешка на полке, px — из толщины книги (числа страниц) */
 export function spineWidth(book: Book): number {
     const pages = book.pages ?? 300;
-    return Math.round(Math.min(48, Math.max(22, 18 + pages / 16)));
+    return Math.round(Math.min(88, Math.max(40, 26 + pages / 12)));
 }
 
-/** высота корешка на полке, px — из толщины и пропорций фото корешка */
 export function spineHeight(book: Book): number {
     if (book.spineRatio) {
         return Math.round(
-            Math.min(300, Math.max(140, spineWidth(book) * book.spineRatio)),
+            Math.min(470, Math.max(240, spineWidth(book) * book.spineRatio)),
         );
     }
-    return Math.round((book.heightPx ?? 250) * 0.74);
+    return Math.round(
+        Math.min(470, Math.max(240, (book.heightPx ?? 250) * 1.35)),
+    );
 }
 
-/** глубина книги (грань обложки) в 3D, px — из ширины обложки */
 export function bookDepth(book: Book): number {
-    return Math.round(Math.min(150, Math.max(90, (book.widthPx ?? 130) * 0.9)));
+    return Math.round(Math.min(190, Math.max(110, (book.widthPx ?? 130) * 1.05)));
 }
 
 /* ── per-book physical look, derived deterministically from the slug so a
