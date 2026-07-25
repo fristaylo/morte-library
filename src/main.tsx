@@ -8,7 +8,6 @@ import {
 import { createRoot } from "react-dom/client";
 import { type Book, fetchBooks } from "./api";
 import Bookcase from "./components/Bookcase";
-import Scenery from "./components/Scenery";
 import "./main.scss";
 import AddPage from "./pages/AddPage";
 import ReviewPage from "./pages/ReviewPage";
@@ -89,7 +88,6 @@ function App() {
     if (hash === "#/add") {
         return (
             <>
-                <Scenery />
                 <SiteHeader
                     right={
                         <a className="topbar-chip" href="#/">
@@ -105,7 +103,6 @@ function App() {
     if (book) {
         return (
             <>
-                <Scenery />
                 <SiteHeader
                     right={
                         <a className="topbar-chip" href="#/">
@@ -120,7 +117,6 @@ function App() {
 
     return (
         <>
-            <Scenery />
             <SiteHeader
                 right={
                     books.length > 0 ? (

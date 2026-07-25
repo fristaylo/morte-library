@@ -11,6 +11,7 @@
     --paper-2: #f0ead9;
 
     /* небо и дымка */
+    --sky: #cfe4f7;
     --sky-hi: #eef3f8;
     --mist: #e7edf4;
     --mist-2: #dbe4ee;
@@ -50,7 +51,7 @@
 }
 
 html {
-    background: var(--canvas);
+    background: var(--sky);
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -63,12 +64,7 @@ body {
     font-family: var(--font-body);
     color: var(--ink);
     min-height: 100vh;
-    background: linear-gradient(
-        180deg,
-        var(--sky-hi) 0%,
-        var(--canvas) 52%,
-        #ffffff 100%
-    );
+    background: var(--sky);
 }
 
 ::selection {

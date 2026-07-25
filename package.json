@@ -12,7 +12,6 @@
         "format": "biome format --write ."
     },
     "dependencies": {
-        "klouds": "^3.0.0",
         "mysql2": "^3.22.6",
         "react": "^19.1.1",
         "react-dom": "^19.1.1"
