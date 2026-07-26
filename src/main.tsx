@@ -220,13 +220,7 @@ function App() {
             />
             <main>
                 <section className="hero">
-                    <p className="hero-eyebrow">книжная полка среди облаков</p>
                     <h1 className="hero-title">Библиотека Морте</h1>
-                    <p className="hero-sub">
-                        Всё прочитанное стоит здесь, на белых полках между
-                        горами и туманом, — и под каждой обложкой спрятан
-                        честный отзыв.
-                    </p>
                     <div className="hero-actions">
                         <button
                             type="button"
@@ -267,9 +261,6 @@ function App() {
                     )}
                 </section>
             </main>
-            <footer className="site-foot">
-                Библиотека Морте · среди гор и туманов
-            </footer>
         </>
     );
 }

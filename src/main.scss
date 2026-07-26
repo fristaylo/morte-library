@@ -175,14 +175,6 @@ button.topbar-chip:hover {
     overflow-x: clip;
 }
 
-.hero-eyebrow {
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-}
-
 @property --ribbon-a {
     syntax: "<angle>";
     initial-value: 0deg;
@@ -273,14 +265,6 @@ button.topbar-chip:hover {
         font-size: 10vw;
         line-height: 1.25;
     }
-}
-
-.hero-sub {
-    margin-top: 22px;
-    max-width: 46ch;
-    font-size: clamp(1rem, 1.4vw, 1.13rem);
-    line-height: 1.65;
-    color: var(--ink-soft);
 }
 
 .hero-actions {
@@ -418,14 +402,4 @@ button.topbar-chip:hover {
     font-size: 1.2rem;
     color: var(--ink-soft);
     text-align: center;
-}
-
-.site-foot {
-    position: relative;
-    z-index: 1;
-    padding: 0 24px 40px;
-    text-align: center;
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
-    color: var(--ink-faint);
 }
