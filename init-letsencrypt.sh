@@ -9,12 +9,6 @@ RSA_KEY_SIZE=4096
 
 mkdir -p "$DATA_PATH/conf" "$DATA_PATH/www"
 
-if [ ! -e "$DATA_PATH/conf/options-ssl-nginx.conf" ] || [ ! -e "$DATA_PATH/conf/ssl-dhparams.pem" ]; then
-    echo ">>> Downloading recommended TLS parameters"
-    curl -sSfL https://raw.githubusercontent.com/certbot/certbot/master/certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf > "$DATA_PATH/conf/options-ssl-nginx.conf"
-    curl -sSfL https://raw.githubusercontent.com/certbot/certbot/master/certbot/ssl-dhparams.pem > "$DATA_PATH/conf/ssl-dhparams.pem"
-fi
-
 if [ -e "$DATA_PATH/conf/renewal/$DOMAIN.conf" ]; then
     echo ">>> Certificate for $DOMAIN already issued, skipping bootstrap"
     docker compose up -d --remove-orphans
