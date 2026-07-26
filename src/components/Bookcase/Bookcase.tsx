@@ -1,7 +1,9 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 import type { Book } from "../../api/api";
 import { spineWidth } from "../../api/api";
+import { useAuth } from "../../hooks/useAuth";
 import BookSpine from "../BookSpine/BookSpine";
+import LoginDialog from "../Dialogs/LoginDialog/LoginDialog";
 import Inkwell from "../Inkwell/Inkwell";
 import "./Bookcase.scss";
 
@@ -65,11 +67,24 @@ export default function Bookcase({ books }: { books: Book[] }) {
     const rowRef = useRef<HTMLDivElement>(null);
     const shelfWidth = useShelfWidth(rowRef);
     const shelves = packShelves(books, shelfWidth);
+    const { authorized } = useAuth();
+    const [loginOpen, setLoginOpen] = useState(false);
+
+    const openAdd = () => {
+        window.location.hash = "#/add";
+    };
+
     return (
         <section className="bookcase" aria-label="Книжный шкаф">
             <Inkwell
-                onClick={() => {
-                    window.location.hash = "#/add";
+                onClick={() => (authorized ? openAdd() : setLoginOpen(true))}
+            />
+            <LoginDialog
+                open={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                onSuccess={() => {
+                    setLoginOpen(false);
+                    openAdd();
                 }}
             />
             <div className="bookcase-top" aria-hidden="true" />

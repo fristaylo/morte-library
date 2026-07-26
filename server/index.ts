@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { equals, isAuthorized, makeToken, SESSION_TTL } from "./auth";
 
 function env(name: string): string {
     const value = process.env[name];
@@ -81,6 +82,26 @@ function json(data: unknown, status = 200): Response {
     return new Response(JSON.stringify(data), {
         status,
         headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+}
+
+async function login(req: Request): Promise<Response> {
+    const body = (await req.json().catch(() => null)) as {
+        user?: unknown;
+        password?: unknown;
+    } | null;
+    const user = typeof body?.user === "string" ? body.user : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!equals(user, USER) || !equals(password, PASSWORD)) {
+        return json({ error: "Неверный логин или пароль" }, 401);
+    }
+    return new Response(JSON.stringify({ authorized: true }), {
+        headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Set-Cookie":
+                `session=${makeToken(PASSWORD)}; HttpOnly; SameSite=Lax;` +
+                ` Path=/; Max-Age=${SESSION_TTL / 1000}`,
+        },
     });
 }
 
@@ -207,6 +228,9 @@ async function uniqueSlug(title: string): Promise<string> {
 }
 
 async function createBook(req: Request): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
     const form = await req.formData();
     const title = formStr(form.get("title"));
     const author = formStr(form.get("author"));
@@ -254,6 +278,12 @@ Bun.serve({
     async fetch(req) {
         const { pathname } = new URL(req.url);
         try {
+            if (pathname === "/api/login" && req.method === "POST") {
+                return await login(req);
+            }
+            if (pathname === "/api/me") {
+                return json({ authorized: isAuthorized(req, PASSWORD) });
+            }
             if (pathname === "/api/books") {
                 if (req.method === "POST") {
                     return await createBook(req);

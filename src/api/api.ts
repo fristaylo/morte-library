@@ -35,6 +35,26 @@ export async function createBook(data: FormData): Promise<{ slug: string }> {
     return res.json();
 }
 
+export async function fetchMe(): Promise<boolean> {
+    const res = await fetch("/api/me");
+    if (!res.ok) return false;
+    return (await res.json()).authorized === true;
+}
+
+export async function login(
+    user: string,
+    password: string,
+): Promise<string | null> {
+    const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user, password }),
+    });
+    if (res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return data?.error ?? "Не получилось войти — попробуйте позже.";
+}
+
 export function coverUrl(book: Book): string {
     return `/api/books/${book.slug}/cover`;
 }

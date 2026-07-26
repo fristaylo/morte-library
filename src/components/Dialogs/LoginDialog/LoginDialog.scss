@@ -1,0 +1,34 @@
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.login-input {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--canvas);
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--ink);
+
+    &::placeholder {
+        color: var(--ink-faint);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+    }
+}
+
+.login-error {
+    font-size: 0.9rem;
+    color: #b4545c;
+}
+
+.login-submit {
+    margin-top: 6px;
+    justify-content: center;
+}
