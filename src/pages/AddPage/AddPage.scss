@@ -184,8 +184,23 @@
     font-weight: 600;
 }
 
-.add-submit {
+.add-actions {
     display: flex;
-    width: fit-content;
-    margin: 32px auto 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 32px;
+}
+
+.add-confirm-text {
+    color: var(--ink-soft);
+    line-height: 1.6;
+}
+
+.add-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
 }

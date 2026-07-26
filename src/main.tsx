@@ -78,10 +78,11 @@ function App() {
         reload();
     }, [reload]);
 
-    const slug = hash.match(/^#\/book\/(.+)$/)?.[1];
-    const book = slug
-        ? books.find((b) => b.slug === decodeURIComponent(slug))
+    const route = hash.match(/^#\/book\/([^/]+)(\/edit)?$/);
+    const book = route
+        ? books.find((b) => b.slug === decodeURIComponent(route[1]))
         : undefined;
+    const editing = Boolean(route?.[2]);
 
     useEffect(() => {
         window.scrollTo({
@@ -90,17 +91,20 @@ function App() {
         });
     }, [hash]);
 
-    if (hash === "#/add") {
+    if (hash === "#/add" || (editing && book)) {
         return (
             <>
                 <SiteHeader
                     right={
-                        <a className="topbar-chip" href="#/">
-                            ← в шкаф
+                        <a
+                            className="topbar-chip"
+                            href={book ? `#/book/${book.slug}` : "#/"}
+                        >
+                            ← {book ? "к отзыву" : "в шкаф"}
                         </a>
                     }
                 />
-                <AddPage onAdded={reload} />
+                <AddPage book={editing ? book : undefined} onSaved={reload} />
             </>
         );
     }

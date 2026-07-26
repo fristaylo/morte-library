@@ -1,5 +1,13 @@
 import { type FormEvent, useRef, useState } from "react";
-import { createBook } from "../../api/api";
+import {
+    type Book,
+    coverUrl,
+    createBook,
+    deleteBook,
+    spineImageUrl,
+    updateBook,
+} from "../../api/api";
+import Dialog from "../../components/Dialogs/Dialog";
 import "../ReviewPage/ReviewPage.scss";
 import "./AddPage.scss";
 
@@ -57,12 +65,34 @@ function analyzeSpine(file: File): Promise<{ color: string; ratio: number }> {
     });
 }
 
-export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
-    const [fields, setFields] = useState(EMPTY);
+export default function AddPage({
+    book,
+    onSaved,
+}: {
+    book?: Book;
+    onSaved: () => Promise<void>;
+}) {
+    const [fields, setFields] = useState(() =>
+        book
+            ? {
+                  title: book.title,
+                  author: book.author,
+                  rating: String(book.rating),
+                  pages: book.pages === null ? "" : String(book.pages),
+                  dateRead: book.dateRead ?? "",
+                  synopsis: book.synopsis ?? "",
+                  review: book.review ?? "",
+              }
+            : EMPTY,
+    );
     const [cover, setCover] = useState<File | null>(null);
-    const [coverPreview, setCoverPreview] = useState<string | null>(null);
+    const [coverPreview, setCoverPreview] = useState<string | null>(
+        book?.hasCover ? coverUrl(book) : null,
+    );
     const [spine, setSpine] = useState<File | null>(null);
-    const [spinePreview, setSpinePreview] = useState<string | null>(null);
+    const [spinePreview, setSpinePreview] = useState<string | null>(
+        book?.hasSpineImage ? spineImageUrl(book) : null,
+    );
     const [spineMeta, setSpineMeta] = useState<{
         color: string;
         ratio: number;
@@ -70,6 +100,9 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
     const [hover, setHover] = useState(0);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const spineRef = useRef<HTMLInputElement>(null);
 
@@ -103,6 +136,20 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
         }
     }
 
+    async function remove() {
+        if (!book) return;
+        setDeleting(true);
+        setDeleteError(null);
+        try {
+            await deleteBook(book.slug);
+            await onSaved();
+            window.location.hash = "#/";
+        } catch {
+            setDeleteError("Не удалось удалить книгу — попробуйте позже.");
+            setDeleting(false);
+        }
+    }
+
     async function submit(e: FormEvent) {
         e.preventDefault();
         if (!fields.title.trim() || !fields.author.trim()) {
@@ -120,11 +167,19 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
             data.set("spineRatio", String(spineMeta.ratio));
         }
         try {
-            await createBook(data);
-            await onAdded();
-            window.location.hash = "#/";
+            if (book) {
+                await updateBook(book.slug, data);
+            } else {
+                await createBook(data);
+            }
+            await onSaved();
+            window.location.hash = book ? `#/book/${book.slug}` : "#/";
         } catch {
-            setError("Не удалось поставить книгу на полку — попробуйте позже.");
+            setError(
+                book
+                    ? "Не удалось сохранить правки — попробуйте позже."
+                    : "Не удалось поставить книгу на полку — попробуйте позже.",
+            );
             setSaving(false);
         }
     }
@@ -282,14 +337,66 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
 
                 {error && <p className="add-error">{error}</p>}
 
-                <button
-                    type="submit"
-                    className="btn btn-dark add-submit"
-                    disabled={saving}
-                >
-                    {saving ? "Ставим на полку…" : "Положить в шкаф"}
-                </button>
+                <div className="add-actions">
+                    {book && (
+                        <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={() => {
+                                setDeleteError(null);
+                                setConfirmDelete(true);
+                            }}
+                        >
+                            Удалить
+                        </button>
+                    )}
+                    <button
+                        type="submit"
+                        className="btn btn-dark"
+                        disabled={saving}
+                    >
+                        {book
+                            ? saving
+                                ? "Сохраняем…"
+                                : "Сохранить правки"
+                            : saving
+                              ? "Ставим на полку…"
+                              : "Положить в шкаф"}
+                    </button>
+                </div>
             </form>
+
+            {book && (
+                <Dialog
+                    open={confirmDelete}
+                    onClose={() => setConfirmDelete(false)}
+                    title="Удалить книгу?"
+                >
+                    <p className="add-confirm-text">
+                        «{book.title}» исчезнет с полки вместе с отзывом,
+                        обложкой и корешком. Отменить это будет нельзя.
+                    </p>
+                    {deleteError && <p className="add-error">{deleteError}</p>}
+                    <div className="add-confirm-actions">
+                        <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={deleting}
+                        >
+                            Оставить
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-danger"
+                            onClick={remove}
+                            disabled={deleting}
+                        >
+                            {deleting ? "Удаляем…" : "Удалить навсегда"}
+                        </button>
+                    </div>
+                </Dialog>
+            )}
         </main>
     );
 }

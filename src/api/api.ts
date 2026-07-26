@@ -35,6 +35,21 @@ export async function createBook(data: FormData): Promise<{ slug: string }> {
     return res.json();
 }
 
+export async function updateBook(slug: string, data: FormData): Promise<void> {
+    const res = await fetch(`/api/books/${encodeURIComponent(slug)}`, {
+        method: "PUT",
+        body: data,
+    });
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+}
+
+export async function deleteBook(slug: string): Promise<void> {
+    const res = await fetch(`/api/books/${encodeURIComponent(slug)}`, {
+        method: "DELETE",
+    });
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+}
+
 export async function fetchMe(): Promise<boolean> {
     const res = await fetch("/api/me");
     if (!res.ok) return false;

@@ -267,6 +267,79 @@ async function createBook(req: Request): Promise<Response> {
     return json({ slug }, 201);
 }
 
+async function updateBook(req: Request, slug: string): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const form = await req.formData();
+    const title = formStr(form.get("title"));
+    const author = formStr(form.get("author"));
+    if (!title || !author) {
+        return json({ error: "title and author are required" }, 400);
+    }
+
+    const [coverImage, coverMime] = await fileBlob(form.get("cover"));
+    const [spineImage, spineMime] = await fileBlob(form.get("spine"));
+
+    const sets = [
+        "title = ?",
+        "author = ?",
+        "synopsis = ?",
+        "review = ?",
+        "rating = ?",
+        "pages = ?",
+        "date_read = ?",
+    ];
+    const params: unknown[] = [
+        title,
+        author,
+        formStr(form.get("synopsis")),
+        formStr(form.get("review")),
+        formInt(form.get("rating"), 0, 10) ?? 0,
+        formInt(form.get("pages"), 1, 65535),
+        formStr(form.get("dateRead")),
+    ];
+    if (coverImage) {
+        sets.push("cover_image = ?", "cover_mime = ?");
+        params.push(coverImage, coverMime);
+    }
+    if (spineImage) {
+        sets.push(
+            "spine_image = ?",
+            "spine_mime = ?",
+            "spine_color = ?",
+            "spine_ratio = ?",
+        );
+        params.push(
+            spineImage,
+            spineMime,
+            formHexColor(form.get("spineColor")) ?? "#7ab8e0",
+            formFloat(form.get("spineRatio"), 0.5, 20),
+        );
+    }
+    params.push(slug);
+
+    const [res] = await pool.query(
+        `UPDATE books SET ${sets.join(", ")} WHERE slug = ?`,
+        params,
+    );
+    if ((res as { affectedRows: number }).affectedRows === 0) {
+        return json({ error: "Not found" }, 404);
+    }
+    return json({ slug });
+}
+
+async function deleteBook(req: Request, slug: string): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const [res] = await pool.query("DELETE FROM books WHERE slug = ?", [slug]);
+    if ((res as { affectedRows: number }).affectedRows === 0) {
+        return json({ error: "Not found" }, 404);
+    }
+    return json({ deleted: slug });
+}
+
 await waitForDb();
 await pool.query(SCHEMA);
 await pool
@@ -289,6 +362,13 @@ Bun.serve({
                     return await createBook(req);
                 }
                 return await listBooks();
+            }
+            const one = pathname.match(/^\/api\/books\/([^/]+)$/);
+            if (one && req.method === "PUT") {
+                return await updateBook(req, decodeURIComponent(one[1]));
+            }
+            if (one && req.method === "DELETE") {
+                return await deleteBook(req, decodeURIComponent(one[1]));
             }
             const m = pathname.match(
                 /^\/api\/books\/([^/]+)\/(cover|spine)$/,
