@@ -39,13 +39,19 @@ function plural(n: number, [one, few, many]: [string, string, string]) {
     return many;
 }
 
-function SiteHeader({ right }: { right?: ReactNode }) {
+function SiteHeader({
+    onRandom,
+    right,
+}: {
+    onRandom?: () => void;
+    right?: ReactNode;
+}) {
     return (
         <header className="topbar">
             <a className="topbar-brand" href="#/">
                 <svg
-                    width="26"
-                    height="26"
+                    width="30"
+                    height="30"
                     viewBox="0 0 26 26"
                     aria-hidden="true"
                 >
@@ -59,7 +65,18 @@ function SiteHeader({ right }: { right?: ReactNode }) {
                 </svg>
                 <span>Библиотека Морте</span>
             </a>
-            {right}
+            <div className="topbar-actions">
+                {onRandom && (
+                    <button
+                        type="button"
+                        className="topbar-chip"
+                        onClick={onRandom}
+                    >
+                        Случайное
+                    </button>
+                )}
+                {right}
+            </div>
         </header>
     );
 }
@@ -78,6 +95,12 @@ function App() {
         reload();
     }, [reload]);
 
+    const goRandom = useCallback(() => {
+        const pick = books[Math.floor(Math.random() * books.length)];
+        if (pick) window.location.hash = `#/book/${pick.slug}`;
+    }, [books]);
+    const onRandom = books.length > 0 ? goRandom : undefined;
+
     const route = hash.match(/^#\/book\/([^/]+)(\/edit)?$/);
     const book = route
         ? books.find((b) => b.slug === decodeURIComponent(route[1]))
@@ -95,6 +118,7 @@ function App() {
         return (
             <>
                 <SiteHeader
+                    onRandom={onRandom}
                     right={
                         <a
                             className="topbar-chip"
@@ -113,6 +137,7 @@ function App() {
         return (
             <>
                 <SiteHeader
+                    onRandom={onRandom}
                     right={
                         <a className="topbar-chip" href="#/">
                             ← в шкаф
@@ -127,6 +152,7 @@ function App() {
     return (
         <>
             <SiteHeader
+                onRandom={onRandom}
                 right={
                     books.length > 0 ? (
                         <span className="topbar-chip">
@@ -164,13 +190,7 @@ function App() {
                             type="button"
                             className="btn btn-ghost"
                             disabled={books.length === 0}
-                            onClick={() => {
-                                const pick =
-                                    books[
-                                        Math.floor(Math.random() * books.length)
-                                    ];
-                                window.location.hash = `#/book/${pick.slug}`;
-                            }}
+                            onClick={goRandom}
                         >
                             Случайная книга
                         </button>
