@@ -18,7 +18,7 @@ services:
             start_period: 30s
 
     api:
-        image: ghcr.io/fristaylo/morte-library:api
+        image: ${API_IMAGE:-ghcr.io/fristaylo/morte-library:api}
         build:
             context: .
             target: api
@@ -33,7 +33,7 @@ services:
                 condition: service_healthy
 
     app:
-        image: ghcr.io/fristaylo/morte-library:latest
+        image: ${IMAGE:-ghcr.io/fristaylo/morte-library:latest}
         build: .
         ports:
             - "80:80"

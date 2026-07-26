@@ -17,7 +17,7 @@ fi
 
 if [ -e "$DATA_PATH/conf/renewal/$DOMAIN.conf" ]; then
     echo ">>> Certificate for $DOMAIN already issued, skipping bootstrap"
-    docker compose up -d
+    docker compose up -d --remove-orphans
     exit 0
 fi
 
@@ -38,6 +38,6 @@ docker compose run --rm --entrypoint "certbot certonly --webroot -w /var/www/cer
 echo ">>> Reloading nginx"
 docker compose exec app nginx -s reload
 
-docker compose up -d
+docker compose up -d --remove-orphans
 
 echo ">>> Done: https://$DOMAIN"

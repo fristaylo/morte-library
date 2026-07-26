@@ -1,64 +1,106 @@
-name: CI/CD Docker
+name: Build & Deploy
 
 on:
     push:
-        branches:
-            - main
+        branches: [main]
+    workflow_dispatch:
 
 jobs:
-    build-and-push:
+    build:
         runs-on: ubuntu-latest
         permissions:
             contents: read
             packages: write
+        outputs:
+            image: ${{ steps.meta.outputs.image }}
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
-            - name: Login to GHCR
+            - name: Compute lowercase image name
+              id: meta
+              run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+            - name: Log in to GHCR
               uses: docker/login-action@v3
               with:
                   registry: ghcr.io
                   username: ${{ github.actor }}
                   password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build and push
+            - uses: docker/setup-buildx-action@v3
+
+            - name: Build & push app
               uses: docker/build-push-action@v6
               with:
                   context: .
                   push: true
-                  tags: ghcr.io/${{ github.repository }}:latest
+                  tags: |
+                      ${{ steps.meta.outputs.image }}:latest
+                      ${{ steps.meta.outputs.image }}:${{ github.sha }}
+                  cache-from: type=gha,scope=app
+                  cache-to: type=gha,mode=max,scope=app
 
-            - name: Build and push API
+            - name: Build & push api
               uses: docker/build-push-action@v6
               with:
                   context: .
                   target: api
                   push: true
-                  tags: ghcr.io/${{ github.repository }}:api
+                  tags: |
+                      ${{ steps.meta.outputs.image }}:api
+                      ${{ steps.meta.outputs.image }}:api-${{ github.sha }}
+                  cache-from: type=gha,scope=api
+                  cache-to: type=gha,mode=max,scope=api
 
     deploy:
-        needs: build-and-push
+        needs: build
         runs-on: ubuntu-latest
         steps:
-            - name: Deploy to server
-              uses: appleboy/ssh-action@v1
+            - uses: actions/checkout@v4
+
+            - name: Copy deploy files to server
+              uses: appleboy/scp-action@v0.1.7
               with:
                   host: ${{ secrets.HOST }}
                   username: root
                   key: ${{ secrets.SSH_KEY }}
-                  port: 22
+                  source: docker-compose.yml,init-letsencrypt.sh
+                  target: ~/ugolok-morte
+
+            - name: Deploy over SSH
+              uses: appleboy/ssh-action@v1.2.0
+              env:
+                  IMAGE: ${{ needs.build.outputs.image }}:${{ github.sha }}
+                  API_IMAGE: ${{ needs.build.outputs.image }}:api-${{ github.sha }}
+                  GHCR_USER: ${{ github.actor }}
+                  GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  APP_USER: ${{ secrets.USER }}
+                  APP_PASSWORD: ${{ secrets.PASSWORD }}
+              with:
+                  host: ${{ secrets.HOST }}
+                  username: root
+                  key: ${{ secrets.SSH_KEY }}
+                  envs: IMAGE,API_IMAGE,GHCR_USER,GHCR_TOKEN,APP_USER,APP_PASSWORD
                   script: |
-                      if [ ! -d "morte-library" ]; then
-                        git clone https://github.com/${{ github.repository }}.git morte-library
+                      set -e
+                      cd ~/ugolok-morte
+
+                      if ! command -v docker >/dev/null 2>&1; then
+                        echo "Docker not found, installing via get.docker.com…"
+                        curl -fsSL https://get.docker.com | sh
+                        systemctl enable --now docker
                       fi
-                      cd morte-library
-                      git reset --hard HEAD
-                      git pull
-                      printf 'USER=%s\nPASSWORD=%s\n' '${{ secrets.USER }}' '${{ secrets.PASSWORD }}' > .env
+
+                      cat > .env <<EOF
+                      USER=${APP_USER}
+                      PASSWORD=${APP_PASSWORD}
+                      EOF
+                      chmod 600 .env
                       unset USER
-                      echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-                      sudo docker system prune -a -f || true
+
+                      echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+                      export IMAGE API_IMAGE
                       docker compose pull
                       chmod +x init-letsencrypt.sh
                       ./init-letsencrypt.sh
+                      docker image prune -f
