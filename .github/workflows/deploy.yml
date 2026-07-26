@@ -55,7 +55,8 @@ jobs:
                       cd morte-library
                       git reset --hard HEAD
                       git pull
-                      if [ ! -f .env ]; then cp .env.example .env; fi
+                      printf 'USER=%s\nPASSWORD=%s\n' '${{ secrets.USER }}' '${{ secrets.PASSWORD }}' > .env
+                      unset USER
                       echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
                       sudo docker system prune -a -f || true
                       docker compose pull

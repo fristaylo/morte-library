@@ -9,14 +9,20 @@ function env(name: string): string {
     return value;
 }
 
-const PORT = Number(env("PORT"));
+const USER = env("USER");
+const PASSWORD = env("PASSWORD");
+
+const PORT = 3001;
+const DB_HOST = process.env.DB_HOST ?? "localhost";
+const DB_PORT = 3306;
+const DB_NAME = "morte";
 
 const pool = mysql.createPool({
-    host: env("DB_HOST"),
-    port: Number(env("DB_PORT")),
-    user: env("DB_USER"),
-    password: env("DB_PASSWORD"),
-    database: env("DB_NAME"),
+    host: DB_HOST,
+    port: DB_PORT,
+    user: USER,
+    password: PASSWORD,
+    database: DB_NAME,
     charset: "utf8mb4",
     dateStrings: true,
     connectionLimit: 5,
