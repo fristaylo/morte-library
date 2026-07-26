@@ -5,41 +5,35 @@
 }
 
 :root {
-    /* полотно и бумага */
     --canvas: #f7f8f6;
+    --surface: #fff;
     --paper: #fdfdfb;
     --paper-2: #f0ead9;
 
-    /* небо и дымка */
-    --sky: #cfe4f7;
-    --sky-hi: #eef3f8;
+    --sky: #f6dbc2;
+    --sky-hi: #fbeed9;
     --mist: #e7edf4;
     --mist-2: #dbe4ee;
 
-    /* хребты: дальний → ближний */
     --ridge-far: #dfe7f0;
     --ridge-mid: #c6d3e1;
     --ridge-near: #a8bacc;
 
-    /* белый корпус шкафа */
     --case-1: #ffffff;
     --case-2: #eef1f6;
     --case-3: #dde3ec;
     --case-edge: #c9d2de;
 
-    /* румянец облаков и золото звёзд */
     --blush: #f6e3e4;
     --blush-deep: #eecdd1;
     --gold: #f2b705;
 
-    /* чернила */
     --ink: #222b36;
     --ink-soft: #5f7186;
     --ink-faint: #90a0b2;
     --accent: #56789c;
 
-    /* поверхности и линии */
-    --glass: rgba(255, 255, 255, 0.66);
+    --glass: color-mix(in srgb, var(--surface) 66%, transparent);
     --line: rgba(34, 43, 54, 0.1);
 
     --shadow-float: 0 22px 44px -20px rgba(50, 72, 100, 0.32);
@@ -76,8 +70,6 @@ button {
     font-family: inherit;
 }
 
-/* ── плавающий хедер-пилюля ─────────────────────────────────── */
-
 .topbar {
     position: fixed;
     top: 14px;
@@ -91,8 +83,8 @@ button {
     gap: 8px 12px;
     max-width: calc(100vw - 20px);
     padding: 8px 8px 8px 18px;
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    border: 1px solid color-mix(in srgb, var(--surface) 70%, transparent);
     border-radius: 999px;
     box-shadow: 0 10px 34px -14px rgba(50, 72, 100, 0.25);
 }
@@ -147,7 +139,7 @@ button.topbar-chip {
 a.topbar-chip:hover,
 button.topbar-chip:hover {
     background: var(--ink);
-    color: #fff;
+    color: var(--surface);
 }
 
 @media (max-width: 560px) {
@@ -169,8 +161,6 @@ button.topbar-chip:hover {
         font-size: 0.85rem;
     }
 }
-
-/* ── hero ───────────────────────────────────────────────────── */
 
 .hero {
     position: relative;
@@ -210,7 +200,7 @@ button.topbar-chip:hover {
     margin: calc(0.5 * var(--h) + var(--r)) calc(1.2 * var(--h) + var(--d));
     padding-inline: 0.65em;
     background: var(--c);
-    color: #fff;
+    color: var(--surface);
     font-family: var(--font-hand);
     font-weight: 400;
     font-size: clamp(2.4rem, 7.5vw, 5rem);
@@ -326,8 +316,6 @@ button.topbar-chip:hover {
     }
 }
 
-/* ── кнопки-пилюли ──────────────────────────────────────────── */
-
 .btn {
     display: inline-flex;
     align-items: center;
@@ -353,7 +341,7 @@ button.topbar-chip:hover {
 
 .btn-dark {
     background: var(--ink);
-    color: #fff;
+    color: var(--surface);
     box-shadow: 0 14px 30px -12px rgba(34, 43, 54, 0.45);
 
     &:hover {
@@ -375,7 +363,7 @@ button.topbar-chip:hover {
 }
 
 .btn-danger {
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
     color: #b4574d;
     border: 1px solid rgba(180, 87, 77, 0.45);
 
@@ -392,14 +380,14 @@ button.topbar-chip:hover {
 }
 
 .btn-ghost {
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
     color: var(--ink);
     border: 1px solid var(--line);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
 
     &:hover:not(:disabled) {
-        background: #fff;
+        background: var(--surface);
         transform: translateY(-2px);
     }
 
@@ -408,8 +396,6 @@ button.topbar-chip:hover {
         cursor: default;
     }
 }
-
-/* ── секция с полками ───────────────────────────────────────── */
 
 .shelf-page {
     position: relative;

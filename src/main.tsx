@@ -7,7 +7,9 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { type Book, fetchBooks } from "./api/api";
+import Background from "./components/Background/Background";
 import Bookcase from "./components/Bookcase/Bookcase";
+import TimeDial from "./components/TimeDial/TimeDial";
 import "./main.scss";
 import AddPage from "./pages/AddPage/AddPage";
 import ReviewPage from "./pages/ReviewPage/ReviewPage";
@@ -31,6 +33,11 @@ function useHash() {
     return hash;
 }
 
+function nowHour() {
+    const d = new Date();
+    return d.getHours() + d.getMinutes() / 60;
+}
+
 function plural(n: number, [one, few, many]: [string, string, string]) {
     const d10 = n % 10;
     const d100 = n % 100;
@@ -40,9 +47,11 @@ function plural(n: number, [one, few, many]: [string, string, string]) {
 }
 
 function SiteHeader({
+    clock,
     onRandom,
     right,
 }: {
+    clock?: ReactNode;
     onRandom?: () => void;
     right?: ReactNode;
 }) {
@@ -66,6 +75,7 @@ function SiteHeader({
                 <span>Библиотека Морте</span>
             </a>
             <div className="topbar-actions">
+                {clock}
                 {onRandom && (
                     <button
                         type="button"
@@ -85,6 +95,31 @@ function App() {
     const hash = useHash();
     const [books, setBooks] = useState<Book[]>([]);
     const [error, setError] = useState(false);
+    const [hourOverride, setHourOverride] = useState<number | null>(null);
+    const [realHour, setRealHour] = useState(nowHour);
+    const [dialOpen, setDialOpen] = useState(false);
+
+    useEffect(() => {
+        const tick = () => {
+            if (!document.hidden) setRealHour(nowHour());
+        };
+        const id = setInterval(tick, 60_000);
+        document.addEventListener("visibilitychange", tick);
+        return () => {
+            clearInterval(id);
+            document.removeEventListener("visibilitychange", tick);
+        };
+    }, []);
+
+    const hour = hourOverride ?? realHour;
+    const clock = (
+        <TimeDial
+            hour={hour}
+            isOverride={hourOverride !== null}
+            onChange={setHourOverride}
+            onOpenChange={setDialOpen}
+        />
+    );
 
     const reload = useCallback(
         () => fetchBooks().then(setBooks, () => setError(true)),
@@ -117,7 +152,9 @@ function App() {
     if (hash === "#/add" || (editing && book)) {
         return (
             <>
+                <Background hour={hour} drift={dialOpen} />
                 <SiteHeader
+                    clock={clock}
                     onRandom={onRandom}
                     right={
                         <a
@@ -136,7 +173,9 @@ function App() {
     if (book) {
         return (
             <>
+                <Background hour={hour} drift={dialOpen} />
                 <SiteHeader
+                    clock={clock}
                     onRandom={onRandom}
                     right={
                         <a className="topbar-chip" href="#/">
@@ -151,7 +190,9 @@ function App() {
 
     return (
         <>
+            <Background hour={hour} drift={dialOpen} />
             <SiteHeader
+                clock={clock}
                 onRandom={onRandom}
                 right={
                     books.length > 0 ? (

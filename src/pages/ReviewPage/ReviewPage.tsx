@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { Book } from "../../api/api";
 import { coverUrl, formatDateRead } from "../../api/api";
 import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../hooks/useAuth";
 import "./ReviewPage.scss";
 
-export default function ReviewPage({ book }: { book: Book }) {
+function ReviewPage({ book }: { book: Book }) {
     const dateRead = formatDateRead(book);
     const coverWidth = book.widthPx ?? 200;
     const rating = Math.min(10, Math.max(0, Math.round(book.rating)));
@@ -54,6 +54,8 @@ export default function ReviewPage({ book }: { book: Book }) {
                                 className="review-cover"
                                 src={coverUrl(book)}
                                 alt=""
+                                decoding="async"
+                                fetchPriority="high"
                                 style={{ width: coverWidth }}
                             />
                         ) : (
@@ -112,8 +114,7 @@ export default function ReviewPage({ book }: { book: Book }) {
                     <section className="review-body">
                         <h2>Мой отзыв</h2>
                         {book.review.split("\n\n").map((paragraph, i) => (
-                            // статичный текст, порядок не меняется
-                            // biome-ignore lint/suspicious/noArrayIndexKey: см. выше
+                            // biome-ignore lint/suspicious/noArrayIndexKey: статичные абзацы
                             <p key={i}>{paragraph}</p>
                         ))}
                     </section>
@@ -126,3 +127,5 @@ export default function ReviewPage({ book }: { book: Book }) {
         </main>
     );
 }
+
+export default memo(ReviewPage);

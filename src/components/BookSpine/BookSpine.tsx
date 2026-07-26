@@ -41,9 +41,6 @@ export default function BookSpine({
         backgroundColor: book.spineColor,
         color: book.spineTextColor,
     };
-    if (book.hasSpineImage) {
-        spineStyle.backgroundImage = `url(${spineImageUrl(book)})`;
-    }
 
     return (
         <button
@@ -63,7 +60,16 @@ export default function BookSpine({
                 }
                 style={spineStyle}
             >
-                {!book.hasSpineImage && (
+                {book.hasSpineImage ? (
+                    <img
+                        className="book-spine-img"
+                        src={spineImageUrl(book)}
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        alt=""
+                    />
+                ) : (
                     <>
                         <span className="spine-title">{book.title}</span>
                         <span className="spine-author">{book.author}</span>

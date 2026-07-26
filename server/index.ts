@@ -122,6 +122,7 @@ interface BookRow {
     hasSpineImage: number;
     spineRatio: string | null;
     dateRead: string | null;
+    updatedAt: string;
 }
 
 async function listBooks(): Promise<Response> {
@@ -132,7 +133,8 @@ async function listBooks(): Promise<Response> {
             (cover_image IS NOT NULL) AS hasCover,
             (spine_image IS NOT NULL) AS hasSpineImage,
             spine_ratio AS spineRatio,
-            date_read AS dateRead
+            date_read AS dateRead,
+            updated_at AS updatedAt
         FROM books
         ORDER BY id ASC`,
     );
@@ -161,7 +163,7 @@ async function serveImage(
     return new Response(row.image, {
         headers: {
             "Content-Type": row.mime ?? "application/octet-stream",
-            "Cache-Control": "public, max-age=86400",
+            "Cache-Control": "public, max-age=31536000, immutable",
         },
     });
 }

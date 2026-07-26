@@ -1,0 +1,91 @@
+.site-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    contain: strict;
+
+    svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+.site-bg-stars {
+    position: absolute;
+    inset: 0;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(3, 4, 7, 0.32);
+        -webkit-mask-image: var(--sky-mask);
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-position: 50% 100%;
+        -webkit-mask-size: cover;
+        mask-image: var(--sky-mask);
+        mask-repeat: no-repeat;
+        mask-position: 50% 100%;
+        mask-size: cover;
+    }
+
+    svg {
+        position: absolute;
+        inset: 0;
+    }
+}
+
+.bg-star-0 {
+    animation: bg-twinkle 3.8s ease-in-out infinite;
+}
+
+.bg-star-1 {
+    animation: bg-twinkle 5.1s ease-in-out 1.3s infinite;
+}
+
+.bg-star-2 {
+    animation: bg-twinkle 6.7s ease-in-out 2.6s infinite;
+}
+
+@keyframes bg-twinkle {
+    50% {
+        opacity: 0.55;
+    }
+}
+
+.bg-comet {
+    opacity: 0;
+    animation: bg-comet linear infinite;
+}
+
+@keyframes bg-comet {
+    0% {
+        transform: translate(var(--x0), var(--y0));
+        opacity: 0;
+    }
+    6% {
+        opacity: 0.9;
+    }
+    12% {
+        transform: translate(var(--x1), var(--y1));
+        opacity: 0;
+    }
+    100% {
+        transform: translate(var(--x1), var(--y1));
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bg-comet {
+        display: none;
+    }
+
+    .bg-star-0,
+    .bg-star-1,
+    .bg-star-2 {
+        animation: none;
+    }
+}

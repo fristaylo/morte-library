@@ -28,7 +28,7 @@
     height: 44px;
     padding: 0;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
     border: 1px solid var(--line);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
@@ -41,7 +41,7 @@
 
     &:hover {
         color: var(--ink);
-        background: #fff;
+        background: var(--surface);
         transform: translateY(-2px);
     }
 
@@ -60,6 +60,10 @@
 .review-cover-wrap {
     perspective: 900px;
     flex-shrink: 0;
+}
+
+img.review-cover {
+    aspect-ratio: auto 2 / 3;
 }
 
 .review-cover {
@@ -212,7 +216,7 @@
         background 0.25s ease;
 
     &:hover {
-        color: #fff;
+        color: var(--surface);
         background: var(--ink);
     }
 }

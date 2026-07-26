@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { memo, type RefObject, useEffect, useRef, useState } from "react";
 import type { Book } from "../../api/api";
 import { spineWidth } from "../../api/api";
 import { useAuth } from "../../hooks/useAuth";
@@ -63,7 +63,7 @@ function useShelfWidth(ref: RefObject<HTMLElement | null>): number {
     return width;
 }
 
-export default function Bookcase({ books }: { books: Book[] }) {
+function Bookcase({ books }: { books: Book[] }) {
     const rowRef = useRef<HTMLDivElement>(null);
     const shelfWidth = useShelfWidth(rowRef);
     const shelves = packShelves(books, shelfWidth);
@@ -133,3 +133,5 @@ export default function Bookcase({ books }: { books: Book[] }) {
         </section>
     );
 }
+
+export default memo(Bookcase);

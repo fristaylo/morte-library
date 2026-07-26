@@ -73,7 +73,7 @@
     transform-origin: 0 50%;
     transform: skewY(calc(-1 * atan2(var(--rise), var(--wall-run))));
     background:
-        linear-gradient(90deg, #ffffff, #f0f3f8 45%, var(--case-3)),
+        linear-gradient(90deg, var(--case-1), var(--case-2) 45%, var(--case-3)),
         var(--grain-v);
     box-shadow: inset -18px 0 22px -12px rgba(40, 58, 82, 0.55);
 }
@@ -83,9 +83,19 @@
     transform-origin: 100% 50%;
     transform: skewY(atan2(var(--rise), var(--wall-run)));
     background:
-        linear-gradient(270deg, #ffffff, #f0f3f8 45%, var(--case-3)),
+        linear-gradient(
+                270deg,
+                var(--case-1),
+                var(--case-2) 45%,
+                var(--case-3)
+            ),
         var(--grain-v);
     box-shadow: inset 18px 0 22px -12px rgba(40, 58, 82, 0.55);
+}
+
+.bookcase-shelf:not(:first-child) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
 }
 
 .bookcase-books {

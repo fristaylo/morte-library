@@ -4,23 +4,18 @@ export interface Book {
     title: string;
     author: string;
     synopsis: string | null;
-    /** абзацы разделены пустой строкой */
     review: string | null;
-    /** 0–10 */
     rating: number;
     pages: number | null;
-    /** ширина обложки, px (для страницы отзыва) */
     widthPx: number | null;
-    /** высота книги на полке, px */
     heightPx: number | null;
     spineColor: string;
     spineTextColor: string;
     hasCover: boolean;
     hasSpineImage: boolean;
-    /** высота фото корешка / его ширина */
     spineRatio: number | null;
-    /** ISO-дата YYYY-MM-DD или null */
     dateRead: string | null;
+    updatedAt: string;
 }
 
 export async function fetchBooks(): Promise<Book[]> {
@@ -71,11 +66,11 @@ export async function login(
 }
 
 export function coverUrl(book: Book): string {
-    return `/api/books/${book.slug}/cover`;
+    return `/api/books/${book.slug}/cover?v=${encodeURIComponent(book.updatedAt)}`;
 }
 
 export function spineImageUrl(book: Book): string {
-    return `/api/books/${book.slug}/spine`;
+    return `/api/books/${book.slug}/spine?v=${encodeURIComponent(book.updatedAt)}`;
 }
 
 export function spineWidth(book: Book): number {
@@ -111,11 +106,8 @@ function rollLength(slug: string): number {
 }
 
 export interface BookPlace {
-    /** размер книги вглубь полки, px */
     length: number;
-    /** от переднего края полки до фасада книги, px */
     z: number;
-    /** доля пути до задней стенки, 0–1 */
     back: number;
 }
 
@@ -130,15 +122,14 @@ export function bookPlace(book: Book): BookPlace {
 }
 
 const PAGE_TONES: readonly [string, string][] = [
-    ["#f6f0e0", "#e2d6ba"], // cream
-    ["#f3ecda", "#dccdac"], // warm
-    ["#f9f4e9", "#e7ddc6"], // bright ivory
-    ["#efe5cf", "#d3c4a0"], // aged
-    ["#f5efdd", "#ddd0b2"], // sand
-    ["#f1ead4", "#d6c7a4"], // oat
+    ["#f6f0e0", "#e2d6ba"],
+    ["#f3ecda", "#dccdac"],
+    ["#f9f4e9", "#e7ddc6"],
+    ["#efe5cf", "#d3c4a0"],
+    ["#f5efdd", "#ddd0b2"],
+    ["#f1ead4", "#d6c7a4"],
 ];
 export interface BookLook {
-    /** page-block tones (near/far) */
     pageA: string;
     pageB: string;
     gap: number;

@@ -25,6 +25,7 @@ function book(slug: string, widthPx: number | null = null): Book {
         hasSpineImage: false,
         spineRatio: null,
         dateRead: null,
+        updatedAt: "2026-07-26 00:00:00",
     };
 }
 
@@ -48,9 +49,9 @@ test("длина книги не меняется между рендерами"
 });
 
 test("реальная ширина обложки важнее паттерна", () => {
-    expect(bookPlace(book("krolik", 160)).length).toBe(168);
-    expect(bookPlace(book("krolik", 400)).length).toBe(230);
-    expect(bookPlace(book("krolik", 20)).length).toBe(140);
+    expect(bookPlace(book("krolik", 200)).length).toBe(210);
+    expect(bookPlace(book("krolik", 400)).length).toBe(MAX_LENGTH);
+    expect(bookPlace(book("krolik", 20)).length).toBe(MIN_LENGTH);
 });
 
 test("паттерны дают разные длины", () => {
