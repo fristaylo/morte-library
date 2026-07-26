@@ -73,15 +73,32 @@ export function spineImageUrl(book: Book): string {
     return `/api/books/${book.slug}/spine?v=${encodeURIComponent(book.updatedAt)}`;
 }
 
+const HEIGHT_BASE_WIDTH = 40;
+const MIN_HEIGHT = 200;
+const MAX_HEIGHT = 250;
+const MIN_WIDTH = 18;
+const MAX_WIDTH = 72;
+
 export function spineWidth(book: Book): number {
+    if (book.spineRatio) {
+        return Math.round(
+            Math.min(
+                MAX_WIDTH,
+                Math.max(MIN_WIDTH, spineHeight(book) / book.spineRatio),
+            ),
+        );
+    }
     const pages = book.pages ?? 300;
-    return Math.round(Math.min(88, Math.max(40, 26 + pages / 12)));
+    return Math.round(Math.min(MAX_WIDTH, Math.max(30, 22 + pages / 16)));
 }
 
 export function spineHeight(book: Book): number {
     if (book.spineRatio) {
         return Math.round(
-            Math.min(470, Math.max(240, spineWidth(book) * book.spineRatio)),
+            Math.min(
+                MAX_HEIGHT,
+                Math.max(MIN_HEIGHT, HEIGHT_BASE_WIDTH * book.spineRatio),
+            ),
         );
     }
     return Math.round(
