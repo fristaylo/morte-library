@@ -2,7 +2,7 @@
 set -e
 
 DOMAIN=agoncharenko.dev
-DOMAIN_ARGS="-d agoncharenko.dev -d www.agoncharenko.dev"
+DOMAIN_ARGS="-d agoncharenko.dev"
 EMAIL=andru200408@gmail.com
 DATA_PATH=./certbot
 RSA_KEY_SIZE=4096

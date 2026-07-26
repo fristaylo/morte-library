@@ -7,6 +7,11 @@ services:
             MYSQL_USER: ${USER:?}
             MYSQL_PASSWORD: ${PASSWORD:?}
             MYSQL_ROOT_PASSWORD: ${PASSWORD:?}
+        command:
+            - --innodb-buffer-pool-size=64M
+            - --performance-schema=OFF
+            - --max-connections=30
+            - --table-open-cache=64
         volumes:
             - mysql-data:/var/lib/mysql
         ports:
@@ -14,8 +19,9 @@ services:
         healthcheck:
             test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
             interval: 5s
-            retries: 20
-            start_period: 30s
+            timeout: 5s
+            retries: 30
+            start_period: 120s
 
     api:
         image: ${API_IMAGE:-ghcr.io/fristaylo/morte-library:api}
