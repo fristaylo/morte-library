@@ -6,11 +6,11 @@ import {
     useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import { type Book, fetchBooks } from "./api";
-import Bookcase from "./components/Bookcase";
+import { type Book, fetchBooks } from "./api/api";
+import Bookcase from "./components/Bookcase/Bookcase";
 import "./main.scss";
-import AddPage from "./pages/AddPage";
-import ReviewPage from "./pages/ReviewPage";
+import AddPage from "./pages/AddPage/AddPage";
+import ReviewPage from "./pages/ReviewPage/ReviewPage";
 
 let shelfScroll = 0;
 

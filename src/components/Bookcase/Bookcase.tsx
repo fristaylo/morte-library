@@ -1,8 +1,8 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import type { Book } from "../api";
-import { spineWidth } from "../api";
-import BookSpine from "./BookSpine";
-import Inkwell from "./Inkwell";
+import type { Book } from "../../api/api";
+import { spineWidth } from "../../api/api";
+import BookSpine from "../BookSpine/BookSpine";
+import Inkwell from "../Inkwell/Inkwell";
 import "./Bookcase.scss";
 
 const BOOK_GAP = 7;

@@ -1,6 +1,6 @@
 import { type FormEvent, useRef, useState } from "react";
-import { createBook } from "../api";
-import "./ReviewPage.scss";
+import { createBook } from "../../api/api";
+import "../ReviewPage/ReviewPage.scss";
 import "./AddPage.scss";
 
 const STARS = Array.from({ length: 10 }, (_, i) => i + 1);

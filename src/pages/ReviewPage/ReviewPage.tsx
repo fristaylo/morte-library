@@ -1,5 +1,5 @@
-import type { Book } from "../api";
-import { coverUrl, formatDateRead } from "../api";
+import type { Book } from "../../api/api";
+import { coverUrl, formatDateRead } from "../../api/api";
 import "./ReviewPage.scss";
 
 export default function ReviewPage({ book }: { book: Book }) {

@@ -1,12 +1,12 @@
 import type { CSSProperties } from "react";
-import type { Book } from "../api";
+import type { Book } from "../../api/api";
 import {
     bookLook,
     bookPlace,
     spineHeight,
     spineImageUrl,
     spineWidth,
-} from "../api";
+} from "../../api/api";
 import "./BookSpine.scss";
 
 export default function BookSpine({

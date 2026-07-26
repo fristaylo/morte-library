@@ -1,5 +1,3 @@
-@use "../surface" as *;
-
 .bookcase {
     position: relative;
     width: var(--case-w);
@@ -16,6 +14,7 @@
     --wall-run: calc(
         (var(--case-w) - 2 * var(--plank-inset)) * 0.5 * (1 - var(--fore))
     );
+    --rise: calc(var(--shelf-depth) * sin(var(--shelf-tilt)) * var(--fore));
 
     --grain-v: repeating-linear-gradient(
         90deg,
@@ -63,11 +62,16 @@
 
 .bookcase-wall {
     pointer-events: none;
+    position: absolute;
+    top: 0;
+    bottom: calc(-1 * var(--rise));
+    width: var(--wall-run);
 }
 
 .bookcase-wall-left {
-    @include side-face(var(--wall-run), left);
     left: var(--plank-inset);
+    transform-origin: 0 50%;
+    transform: skewY(calc(-1 * atan2(var(--rise), var(--wall-run))));
     background:
         linear-gradient(90deg, #ffffff, #f0f3f8 45%, var(--case-3)),
         var(--grain-v);
@@ -75,8 +79,9 @@
 }
 
 .bookcase-wall-right {
-    @include side-face(var(--wall-run), right);
     right: var(--plank-inset);
+    transform-origin: 100% 50%;
+    transform: skewY(atan2(var(--rise), var(--wall-run)));
     background:
         linear-gradient(270deg, #ffffff, #f0f3f8 45%, var(--case-3)),
         var(--grain-v);
@@ -90,7 +95,7 @@
     align-items: flex-end;
     justify-content: center;
     min-height: 290px;
-    padding-top: calc(#{rise(var(--shelf-depth))} + 6px);
+    padding-top: calc(var(--rise) + 6px);
     padding-bottom: 12px;
     padding-inline: calc(var(--wall-run) + 8px);
 
@@ -140,7 +145,15 @@
     box-shadow: 0 12px 18px -6px rgba(70, 95, 125, 0.2);
 
     &::before {
-        @include top-face(var(--shelf-depth));
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        height: var(--shelf-depth);
+        transform-origin: 50% 100%;
+        transform: perspective(var(--persp))
+            rotateX(calc(90deg - var(--shelf-tilt)));
         background:
             linear-gradient(
                 180deg,

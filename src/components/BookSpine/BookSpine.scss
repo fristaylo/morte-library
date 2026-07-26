@@ -1,5 +1,3 @@
-@use "../surface" as *;
-
 .book {
     position: relative;
     display: block;
@@ -17,7 +15,12 @@
     --lift: 0px;
     --far: calc(1 - (1 - var(--fore, 0.88)) * var(--back, 0));
     transform: perspective(var(--persp, 900px))
-        translateY(calc(var(--lift) - #{rise(var(--z, 0px))}))
+        translateY(
+            calc(
+                var(--lift) - var(--z, 0px) * sin(var(--shelf-tilt)) *
+                    var(--fore)
+            )
+        )
         scale(var(--far))
         rotateX(calc(-1 * var(--tilt, 14deg)))
         rotateY(calc(var(--yaw, 0) * var(--yaw-max, 3.4deg)));
