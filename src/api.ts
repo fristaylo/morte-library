@@ -6,7 +6,7 @@ export interface Book {
     synopsis: string | null;
     /** абзацы разделены пустой строкой */
     review: string | null;
-    /** 1–5 */
+    /** 0–10 */
     rating: number;
     pages: number | null;
     /** ширина обложки, px (для страницы отзыва) */

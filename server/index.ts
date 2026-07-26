@@ -223,7 +223,7 @@ async function createBook(req: Request): Promise<Response> {
             author,
             formStr(form.get("synopsis")),
             formStr(form.get("review")),
-            formInt(form.get("rating"), 0, 5) ?? 0,
+            formInt(form.get("rating"), 0, 10) ?? 0,
             formInt(form.get("pages"), 1, 65535),
             formHexColor(form.get("spineColor")) ?? "#7ab8e0",
             coverImage,

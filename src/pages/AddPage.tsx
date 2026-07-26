@@ -3,10 +3,12 @@ import { createBook } from "../api";
 import "./ReviewPage.scss";
 import "./AddPage.scss";
 
+const STARS = Array.from({ length: 10 }, (_, i) => i + 1);
+
 const EMPTY = {
     title: "",
     author: "",
-    rating: "",
+    rating: "0",
     pages: "",
     dateRead: "",
     synopsis: "",
@@ -65,6 +67,7 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
         color: string;
         ratio: number;
     } | null>(null);
+    const [hover, setHover] = useState(0);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -72,6 +75,8 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
 
     const set = (key: keyof typeof EMPTY) => (value: string) =>
         setFields((f) => ({ ...f, [key]: value }));
+
+    const rating = Number(fields.rating) || 0;
 
     function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -204,18 +209,35 @@ export default function AddPage({ onAdded }: { onAdded: () => Promise<void> }) {
                             onChange={(e) => set("author")(e.target.value)}
                         />
                         <div className="review-meta">
-                            <label className="review-chip add-chip">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="5"
-                                    placeholder="Оценка 0–5"
-                                    value={fields.rating}
-                                    onChange={(e) =>
-                                        set("rating")(e.target.value)
-                                    }
-                                />
-                            </label>
+                            <div
+                                className="review-chip add-stars"
+                                onMouseLeave={() => setHover(0)}
+                            >
+                                {STARS.map((n) => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        className={
+                                            n <= (hover || rating)
+                                                ? "add-star add-star--on"
+                                                : "add-star"
+                                        }
+                                        onMouseEnter={() => setHover(n)}
+                                        onClick={() =>
+                                            set("rating")(
+                                                String(rating === n ? 0 : n),
+                                            )
+                                        }
+                                        aria-label={`Оценка ${n} из 10`}
+                                        aria-pressed={n <= rating}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                                <span className="add-stars-value">
+                                    {hover || rating}/10
+                                </span>
+                            </div>
                             <label className="review-chip add-chip">
                                 <input
                                     type="number"

@@ -5,7 +5,7 @@ import "./ReviewPage.scss";
 export default function ReviewPage({ book }: { book: Book }) {
     const dateRead = formatDateRead(book);
     const coverWidth = book.widthPx ?? 200;
-    const rating = Math.min(5, Math.max(0, Math.round(book.rating)));
+    const rating = Math.min(10, Math.max(0, Math.round(book.rating)));
 
     return (
         <main className="review-page">
@@ -40,7 +40,7 @@ export default function ReviewPage({ book }: { book: Book }) {
                             <span
                                 className="review-chip review-stars"
                                 role="img"
-                                aria-label={`оценка: ${rating} из 5`}
+                                aria-label={`оценка: ${rating} из 10`}
                             >
                                 <span
                                     className="review-stars-filled"
@@ -49,7 +49,7 @@ export default function ReviewPage({ book }: { book: Book }) {
                                     {"★".repeat(rating)}
                                 </span>
                                 <span aria-hidden="true">
-                                    {"★".repeat(5 - rating)}
+                                    {"★".repeat(10 - rating)}
                                 </span>
                             </span>
                             {book.pages !== null && (
