@@ -55,17 +55,44 @@ export function spineHeight(book: Book): number {
         );
     }
     return Math.round(
-        Math.min(470, Math.max(240, (book.heightPx ?? 250) * 1.35)),
+        Math.min(300, Math.max(240, (book.heightPx ?? 250) * 1.35)),
     );
 }
 
-export function bookDepth(book: Book): number {
-    return Math.round(Math.min(190, Math.max(110, (book.widthPx ?? 130) * 1.05)));
+export const SHELF_DEPTH = 190;
+export const MIN_LENGTH = SHELF_DEPTH;
+export const MAX_LENGTH = 260;
+
+function slugHash(slug: string): number {
+    let h = 0;
+    for (let i = 0; i < slug.length; i++) {
+        h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+    }
+    return h;
 }
 
-/* ── per-book physical look, derived deterministically from the slug so a
-   book always looks the same. Page tones vary slightly; some books get a
-   ribbon bookmark, a stray page, or a soft vs hard binding ──────────────── */
+function rollLength(slug: string): number {
+    return MIN_LENGTH + (slugHash(slug) % (MAX_LENGTH - MIN_LENGTH + 1));
+}
+
+export interface BookPlace {
+    /** размер книги вглубь полки, px */
+    length: number;
+    /** от переднего края полки до фасада книги, px */
+    z: number;
+    /** доля пути до задней стенки, 0–1 */
+    back: number;
+}
+
+export function bookPlace(book: Book): BookPlace {
+    const length = book.widthPx
+        ? Math.round(
+              Math.min(MAX_LENGTH, Math.max(MIN_LENGTH, book.widthPx * 1.05)),
+          )
+        : rollLength(book.slug);
+    const z = SHELF_DEPTH - length;
+    return { length, z, back: z / SHELF_DEPTH };
+}
 
 const PAGE_TONES: readonly [string, string][] = [
     ["#f6f0e0", "#e2d6ba"], // cream
@@ -79,18 +106,15 @@ export interface BookLook {
     /** page-block tones (near/far) */
     pageA: string;
     pageB: string;
+    gap: number;
 }
 
 export function bookLook(book: Book): BookLook {
-    let h = 0;
-    for (let i = 0; i < book.slug.length; i++) {
-        h = (h * 31 + book.slug.charCodeAt(i)) >>> 0;
-    }
+    const h = slugHash(book.slug);
     const [pageA, pageB] = PAGE_TONES[h % PAGE_TONES.length];
-    return { pageA, pageB };
+    return { pageA, pageB, gap: 4 + ((h >>> 3) % 7) };
 }
 
-/** «январь 2026 г.» */
 export function formatDateRead(book: Book): string | null {
     if (!book.dateRead) return null;
     const d = new Date(book.dateRead);

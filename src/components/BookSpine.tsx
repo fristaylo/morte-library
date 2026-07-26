@@ -1,26 +1,40 @@
 import type { CSSProperties } from "react";
 import type { Book } from "../api";
 import {
-    bookDepth,
     bookLook,
+    bookPlace,
     spineHeight,
     spineImageUrl,
     spineWidth,
 } from "../api";
 import "./BookSpine.scss";
 
-export default function BookSpine({ book }: { book: Book }) {
+export default function BookSpine({
+    book,
+    yaw = 0,
+    rank = 0,
+}: {
+    book: Book;
+    yaw?: number;
+    rank?: number;
+}) {
     const width = spineWidth(book);
     const height = spineHeight(book);
-    const depth = bookDepth(book);
+    const place = bookPlace(book);
     const look = bookLook(book);
     const style = {
         width,
         height,
-        "--book-depth": `${depth}px`,
+        zIndex: rank,
+        "--book-length": `${place.length}px`,
+        "--z": `${place.z}px`,
+        "--yaw": yaw,
+        "--back": place.back,
         "--page-a": look.pageA,
         "--page-b": look.pageB,
         "--cover": book.spineColor,
+        "--gap": `${look.gap}px`,
+        "--tight": (10 - look.gap) / 6,
     } as CSSProperties;
 
     const spineStyle: CSSProperties = {
@@ -56,6 +70,14 @@ export default function BookSpine({ book }: { book: Book }) {
                     </>
                 )}
             </span>
+            <span
+                className="book-face book-side book-side-left"
+                aria-hidden="true"
+            />
+            <span
+                className="book-face book-side book-side-right"
+                aria-hidden="true"
+            />
             <span className="book-face book-top" aria-hidden="true">
                 <span className="book-pages" />
             </span>
