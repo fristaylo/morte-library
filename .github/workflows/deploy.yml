@@ -102,5 +102,12 @@ jobs:
                       export IMAGE API_IMAGE
                       docker compose pull
                       chmod +x init-letsencrypt.sh
-                      ./init-letsencrypt.sh
+                      if ! ./init-letsencrypt.sh; then
+                        echo "===== deploy failed ====="
+                        free -m || true
+                        docker compose ps -a || true
+                        echo "===== mysql logs ====="
+                        docker compose logs --tail=300 mysql || true
+                        exit 1
+                      fi
                       docker image prune -f
