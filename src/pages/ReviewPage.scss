@@ -135,6 +135,7 @@
     margin-top: clamp(36px, 6vw, 56px);
 
     p {
+        display: flow-root;
         max-width: 65ch;
         font-size: 1.02rem;
         line-height: 1.75;
