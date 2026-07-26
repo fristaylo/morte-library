@@ -4,7 +4,6 @@
     margin: 0 auto;
 
     --case-w: min(1024px, 96vw);
-    --tilt: 9deg;
     --shelf-tilt: 9deg;
     --fore: 0.92;
     --yaw-max: 6deg;
@@ -105,7 +104,7 @@
     align-items: flex-end;
     justify-content: center;
     min-height: 290px;
-    padding-top: calc(var(--rise) + 6px);
+    padding-top: calc(var(--rise) + 13px);
     padding-bottom: 12px;
     padding-inline: calc(var(--wall-run) + 8px);
 

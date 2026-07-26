@@ -73,37 +73,51 @@ export function spineImageUrl(book: Book): string {
     return `/api/books/${book.slug}/spine?v=${encodeURIComponent(book.updatedAt)}`;
 }
 
-const HEIGHT_BASE_WIDTH = 40;
 const MIN_HEIGHT = 200;
-const MAX_HEIGHT = 250;
-const MIN_WIDTH = 18;
-const MAX_WIDTH = 72;
+const MAX_HEIGHT = 350;	
+const MIN_WIDTH = 22;
+const MAX_WIDTH = 82;
+const DEFAULT_RATIO = 7;
+const DEFAULT_PAGES = 300;
+
+export interface SpineBox {
+    width: number;
+    height: number;
+}
+
+export function spineBox(book: Book): SpineBox {
+    const pages = book.pages ?? DEFAULT_PAGES;
+    const ratio = book.spineRatio ?? DEFAULT_RATIO;
+    let width = 22 + pages / 16;
+    let height = width * ratio;
+
+    const grow = Math.max(MIN_WIDTH / width, MIN_HEIGHT / height);
+    if (grow > 1) {
+        width *= grow;
+        height *= grow;
+    }
+
+    const shrink = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+    if (shrink < 1) {
+        width *= shrink;
+        height *= shrink;
+    }
+
+    height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height));
+	width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+
+	return {
+		width: Math.round(width),
+		height: Math.round(height),
+	};
+}
 
 export function spineWidth(book: Book): number {
-    if (book.spineRatio) {
-        return Math.round(
-            Math.min(
-                MAX_WIDTH,
-                Math.max(MIN_WIDTH, spineHeight(book) / book.spineRatio),
-            ),
-        );
-    }
-    const pages = book.pages ?? 300;
-    return Math.round(Math.min(MAX_WIDTH, Math.max(30, 22 + pages / 16)));
+    return spineBox(book).width;
 }
 
 export function spineHeight(book: Book): number {
-    if (book.spineRatio) {
-        return Math.round(
-            Math.min(
-                MAX_HEIGHT,
-                Math.max(MIN_HEIGHT, HEIGHT_BASE_WIDTH * book.spineRatio),
-            ),
-        );
-    }
-    return Math.round(
-        Math.min(300, Math.max(240, (book.heightPx ?? 250) * 1.35)),
-    );
+    return spineBox(book).height;
 }
 
 export const SHELF_DEPTH = 190;

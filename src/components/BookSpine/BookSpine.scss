@@ -22,8 +22,8 @@
             )
         )
         scale(var(--far))
-        rotateX(calc(-1 * var(--tilt, 14deg)))
-        rotateY(calc(var(--yaw, 0) * var(--yaw-max, 3.4deg)));
+		rotateX(calc(-1 * var(--tilt, 14deg) - var(--hover-tilt, 0deg)))        
+		rotateY(calc(var(--yaw, 0) * var(--yaw-max, 3.4deg)));
 
     &:first-child {
         margin-left: 0;
@@ -217,7 +217,7 @@
 .book:hover,
 .book:focus-visible {
     --lift: 2px;
-    --tilt: 15deg;
+    --hover-tilt: 4deg;
 }
 
 .book:hover .book-spine::before,
