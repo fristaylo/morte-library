@@ -38,6 +38,15 @@ function nowHour() {
     return d.getHours() + d.getMinutes() / 60;
 }
 
+const HOUR_KEY = "morte:hour";
+
+function storedHour(): number | null {
+    const raw = localStorage.getItem(HOUR_KEY);
+    if (raw === null) return null;
+    const h = Number(raw);
+    return Number.isFinite(h) && h >= 0 && h < 24 ? h : null;
+}
+
 function plural(n: number, [one, few, many]: [string, string, string]) {
     const d10 = n % 10;
     const d100 = n % 100;
@@ -95,9 +104,15 @@ function App() {
     const hash = useHash();
     const [books, setBooks] = useState<Book[]>([]);
     const [error, setError] = useState(false);
-    const [hourOverride, setHourOverride] = useState<number | null>(null);
+    const [hourOverride, setHourOverride] = useState<number | null>(storedHour);
     const [realHour, setRealHour] = useState(nowHour);
     const [dialOpen, setDialOpen] = useState(false);
+
+    const changeHour = useCallback((next: number | null) => {
+        setHourOverride(next);
+        if (next === null) localStorage.removeItem(HOUR_KEY);
+        else localStorage.setItem(HOUR_KEY, String(next));
+    }, []);
 
     useEffect(() => {
         const tick = () => {
@@ -116,7 +131,7 @@ function App() {
         <TimeDial
             hour={hour}
             isOverride={hourOverride !== null}
-            onChange={setHourOverride}
+            onChange={changeHour}
             onOpenChange={setDialOpen}
         />
     );
