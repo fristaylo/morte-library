@@ -14,11 +14,13 @@ import ReviewPage from "./pages/ReviewPage";
 
 let shelfScroll = 0;
 
+const isShelf = (hash: string) => hash === "" || hash === "#/";
+
 function useHash() {
     const [hash, setHash] = useState(window.location.hash);
     useEffect(() => {
         const onChange = () => {
-            if (window.location.hash.startsWith("#/book/")) {
+            if (!isShelf(window.location.hash)) {
                 shelfScroll = window.scrollY;
             }
             setHash(window.location.hash);
@@ -82,8 +84,11 @@ function App() {
         : undefined;
 
     useEffect(() => {
-        window.scrollTo(0, book ? 0 : shelfScroll);
-    }, [book]);
+        window.scrollTo({
+            top: isShelf(hash) ? shelfScroll : 0,
+            behavior: "instant",
+        });
+    }, [hash]);
 
     if (hash === "#/add") {
         return (
