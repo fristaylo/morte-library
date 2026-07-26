@@ -76,38 +76,41 @@ export default function Bookcase({ books }: { books: Book[] }) {
             >
                 <span className="inkwell-quill" aria-hidden="true">
                     <svg
-                        width="24"
-                        height="58"
-                        viewBox="0 0 24 58"
+                        width="48"
+                        height="185"
+                        viewBox="0 0 26 100"
                         fill="none"
                         role="img"
                         aria-label="Перо"
                     >
                         <path
-                            d="M21 3 C 21 3, 6 12, 4 30 C 3 40, 6 47, 9 52 L 11 55"
+                            d="M22.5 5 C 22.5 5, 6 22, 4 52 C 3 69, 6 81, 9.5 89"
                             stroke="var(--ink-soft)"
-                            strokeWidth="1.4"
+                            strokeWidth="2"
                             strokeLinecap="round"
                         />
                         <path
-                            d="M20 6 C 14 10, 9 18, 7 27 C 12 24, 17 17, 20 9 Z"
+                            d="M21.5 8 C 13 16, 6 30, 4 48 C 11.5 42, 18 27, 21.5 13 Z"
                             fill="#8fa6bd"
                             opacity="0.9"
                         />
                         <path
-                            d="M18 15 C 12 19, 8 26, 6 34 C 11 31, 15 25, 18 18 Z"
+                            d="M19 24 C 11 32, 5.5 45, 3.5 60 C 11 54, 16 41, 19 29 Z"
                             fill="#a8bacc"
                             opacity="0.85"
                         />
                         <path
-                            d="M15 24 C 10 28, 7 34, 6 41 C 10 38, 13 32, 15 26 Z"
+                            d="M16 39 C 9 47, 4.5 58, 3.5 71 C 9.5 65, 13.5 54, 16 43 Z"
                             fill="#c6d3e1"
                             opacity="0.8"
                         />
-                        <path d="M9 52 L 11 55 L 12.5 51 Z" fill="#2f3a52" />
+                        <path
+                            d="M8.5 89.4 C 9.2 88.4, 10 88.2, 10.6 88.6 L 12.4 96.4 Z"
+                            fill="#2f3a52"
+                        />
                     </svg>
+                    <span className="inkwell-drop" aria-hidden="true" />
                 </span>
-                <span className="inkwell-drop" aria-hidden="true" />
                 <span className="inkwell-pot" aria-hidden="true" />
             </button>
             <div className="bookcase-top" aria-hidden="true" />
