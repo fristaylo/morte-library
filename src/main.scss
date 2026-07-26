@@ -48,6 +48,7 @@
 
     --font-display: "Cormorant", Georgia, "Times New Roman", serif;
     --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+    --font-hand: "Marck Script", "Segoe Script", cursive;
 }
 
 html {
@@ -191,13 +192,13 @@ a.topbar-chip:hover {
 
     position: relative;
     margin: calc(0.5 * var(--h) + var(--r)) calc(1.2 * var(--h) + var(--d));
-    padding-inline: 0.5em;
+    padding-inline: 0.65em;
     background: var(--c);
     color: #fff;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: clamp(2rem, 6vw, 4rem);
-    line-height: 1.3;
+    font-family: var(--font-hand);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 7.5vw, 5rem);
+    line-height: 1.45;
     letter-spacing: 0.01em;
     text-wrap: balance;
     transition: --ribbon-a 0.55s cubic-bezier(0.33, 1, 0.68, 1);
@@ -263,8 +264,8 @@ a.topbar-chip:hover {
         --h: 2lh;
         --d: 0.3em;
         max-width: min-content;
-        font-size: 8vw;
-        line-height: 1.1;
+        font-size: 10vw;
+        line-height: 1.25;
     }
 }
 
