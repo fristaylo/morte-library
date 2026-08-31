@@ -1,6 +1,6 @@
 import { type FormEvent, memo, useRef, useState } from "react";
 import {
-    type Book,
+    type BookDetail,
     coverUrl,
     createBook,
     deleteBook,
@@ -8,6 +8,7 @@ import {
     updateBook,
 } from "../../api/api";
 import Dialog from "../../components/Dialogs/Dialog";
+import { navigate } from "../../router";
 import "../ReviewPage/ReviewPage.scss";
 import "./AddPage.scss";
 
@@ -103,7 +104,7 @@ function AddPage({
     book,
     onSaved,
 }: {
-    book?: Book;
+    book?: BookDetail;
     onSaved: () => Promise<void>;
 }) {
     const [fields, setFields] = useState(() =>
@@ -179,7 +180,7 @@ function AddPage({
         try {
             await deleteBook(book.slug);
             await onSaved();
-            window.location.hash = "#/";
+            navigate("/");
         } catch {
             setDeleteError("Не удалось удалить книгу — попробуйте позже.");
             setDeleting(false);
@@ -209,7 +210,7 @@ function AddPage({
                 await createBook(data);
             }
             await onSaved();
-            window.location.hash = book ? `#/book/${book.slug}` : "#/";
+            navigate(book ? `/book/${book.slug}` : "/");
         } catch {
             setError(
                 book

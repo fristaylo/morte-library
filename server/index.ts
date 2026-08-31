@@ -110,8 +110,6 @@ interface BookRow {
     slug: string;
     title: string;
     author: string;
-    synopsis: string | null;
-    review: string | null;
     rating: number;
     pages: number | null;
     widthPx: number | null;
@@ -125,26 +123,46 @@ interface BookRow {
     updatedAt: string;
 }
 
-async function listBooks(): Promise<Response> {
-    const [rows] = await pool.query(
-        `SELECT id, slug, title, author, synopsis, review, rating, pages,
-            width_px AS widthPx, height_px AS heightPx,
-            spine_color AS spineColor, spine_text_color AS spineTextColor,
-            (cover_image IS NOT NULL) AS hasCover,
-            (spine_image IS NOT NULL) AS hasSpineImage,
-            spine_ratio AS spineRatio,
-            date_read AS dateRead,
-            updated_at AS updatedAt
-        FROM books
-        ORDER BY id ASC`,
-    );
-    const books = (rows as BookRow[]).map((r) => ({
+interface BookDetailRow extends BookRow {
+    synopsis: string | null;
+    review: string | null;
+}
+
+const BOOK_COLUMNS = `id, slug, title, author, rating, pages,
+    width_px AS widthPx, height_px AS heightPx,
+    spine_color AS spineColor, spine_text_color AS spineTextColor,
+    (cover_image IS NOT NULL) AS hasCover,
+    (spine_image IS NOT NULL) AS hasSpineImage,
+    spine_ratio AS spineRatio,
+    date_read AS dateRead,
+    updated_at AS updatedAt`;
+
+function normalizeBook<T extends BookRow>(r: T) {
+    return {
         ...r,
         hasCover: Boolean(r.hasCover),
         hasSpineImage: Boolean(r.hasSpineImage),
         spineRatio: r.spineRatio === null ? null : Number(r.spineRatio),
-    }));
-    return json(books);
+    };
+}
+
+async function listBooks(): Promise<Response> {
+    const [rows] = await pool.query(
+        `SELECT ${BOOK_COLUMNS} FROM books ORDER BY id ASC`,
+    );
+    return json((rows as BookRow[]).map(normalizeBook));
+}
+
+async function getBook(slug: string): Promise<Response> {
+    const [rows] = await pool.query(
+        `SELECT ${BOOK_COLUMNS}, synopsis, review FROM books WHERE slug = ? LIMIT 1`,
+        [slug],
+    );
+    const row = (rows as BookDetailRow[])[0];
+    if (!row) {
+        return json({ error: "Not found" }, 404);
+    }
+    return json(normalizeBook(row));
 }
 
 async function serveImage(
@@ -371,6 +389,9 @@ Bun.serve({
             }
             if (one && req.method === "DELETE") {
                 return await deleteBook(req, decodeURIComponent(one[1]));
+            }
+            if (one && req.method === "GET") {
+                return await getBook(decodeURIComponent(one[1]));
             }
             const m = pathname.match(
                 /^\/api\/books\/([^/]+)\/(cover|spine)$/,

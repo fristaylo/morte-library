@@ -1,11 +1,12 @@
 import { memo, useState } from "react";
-import type { Book } from "../../api/api";
+import type { Book, BookDetail } from "../../api/api";
 import { coverUrl, formatDateRead } from "../../api/api";
 import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../hooks/useAuth";
+import { linkProps, navigate } from "../../router";
 import "./ReviewPage.scss";
 
-function ReviewPage({ book }: { book: Book }) {
+function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
     const dateRead = formatDateRead(book);
     const coverWidth = book.widthPx ?? 200;
     const rating = Math.min(10, Math.max(0, Math.round(book.rating)));
@@ -13,7 +14,7 @@ function ReviewPage({ book }: { book: Book }) {
     const [loginOpen, setLoginOpen] = useState(false);
 
     const openEdit = () => {
-        window.location.hash = `#/book/${book.slug}/edit`;
+        navigate(`/book/${book.slug}/edit`);
     };
 
     return (
@@ -103,17 +104,17 @@ function ReviewPage({ book }: { book: Book }) {
                     </div>
                 </div>
 
-                {book.synopsis && (
+                {detail?.synopsis && (
                     <section className="review-synopsis">
                         <h2>О книге</h2>
-                        <p>{book.synopsis}</p>
+                        <p>{detail.synopsis}</p>
                     </section>
                 )}
 
-                {book.review && (
+                {detail?.review && (
                     <section className="review-body">
                         <h2>Мой отзыв</h2>
-                        {book.review.split("\n\n").map((paragraph, i) => (
+                        {detail.review.split("\n\n").map((paragraph, i) => (
                             // biome-ignore lint/suspicious/noArrayIndexKey: статичные абзацы
                             <p key={i}>{paragraph}</p>
                         ))}
@@ -121,7 +122,7 @@ function ReviewPage({ book }: { book: Book }) {
                 )}
             </article>
 
-            <a className="review-back" href="#/">
+            <a className="review-back" {...linkProps("/")}>
                 ← вернуться к шкафу
             </a>
         </main>

@@ -92,11 +92,6 @@
     box-shadow: inset 18px 0 22px -12px rgba(40, 58, 82, 0.55);
 }
 
-.bookcase-shelf:not(:first-child) {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 320px;
-}
-
 .bookcase-books {
     position: relative;
     z-index: 1;

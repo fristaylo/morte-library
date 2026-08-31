@@ -3,35 +3,18 @@ import {
     StrictMode,
     useCallback,
     useEffect,
+    useLayoutEffect,
     useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import { type Book, fetchBooks } from "./api/api";
+import { type Book, type BookDetail, fetchBook, fetchBooks } from "./api/api";
 import Background from "./components/Background/Background";
 import Bookcase from "./components/Bookcase/Bookcase";
 import TimeDial from "./components/TimeDial/TimeDial";
 import "./main.scss";
 import AddPage from "./pages/AddPage/AddPage";
 import ReviewPage from "./pages/ReviewPage/ReviewPage";
-
-let shelfScroll = 0;
-
-const isShelf = (hash: string) => hash === "" || hash === "#/";
-
-function useHash() {
-    const [hash, setHash] = useState(window.location.hash);
-    useEffect(() => {
-        const onChange = () => {
-            if (!isShelf(window.location.hash)) {
-                shelfScroll = window.scrollY;
-            }
-            setHash(window.location.hash);
-        };
-        window.addEventListener("hashchange", onChange);
-        return () => window.removeEventListener("hashchange", onChange);
-    }, []);
-    return hash;
-}
+import { linkProps, navigate, savedScroll, usePath } from "./router";
 
 function nowHour() {
     const d = new Date();
@@ -66,7 +49,7 @@ function SiteHeader({
 }) {
     return (
         <header className="topbar">
-            <a className="topbar-brand" href="#/">
+            <a className="topbar-brand" {...linkProps("/")}>
                 <svg
                     width="30"
                     height="30"
@@ -101,9 +84,11 @@ function SiteHeader({
 }
 
 function App() {
-    const hash = useHash();
+    const path = usePath();
     const [books, setBooks] = useState<Book[]>([]);
+    const [details, setDetails] = useState<Record<string, BookDetail>>({});
     const [error, setError] = useState(false);
+    const [detailError, setDetailError] = useState<string | null>(null);
     const [hourOverride, setHourOverride] = useState<number | null>(storedHour);
     const [realHour, setRealHour] = useState(nowHour);
     const [dialOpen, setDialOpen] = useState(false);
@@ -136,10 +121,10 @@ function App() {
         />
     );
 
-    const reload = useCallback(
-        () => fetchBooks().then(setBooks, () => setError(true)),
-        [],
-    );
+    const reload = useCallback(() => {
+        setDetails({});
+        return fetchBooks().then(setBooks, () => setError(true));
+    }, []);
 
     useEffect(() => {
         reload();
@@ -147,24 +132,42 @@ function App() {
 
     const goRandom = useCallback(() => {
         const pick = books[Math.floor(Math.random() * books.length)];
-        if (pick) window.location.hash = `#/book/${pick.slug}`;
+        if (pick) navigate(`/book/${pick.slug}`);
     }, [books]);
     const onRandom = books.length > 0 ? goRandom : undefined;
 
-    const route = hash.match(/^#\/book\/([^/]+)(\/edit)?$/);
+    const route = path.match(/^\/book\/([^/]+)(\/edit)?$/);
     const book = route
         ? books.find((b) => b.slug === decodeURIComponent(route[1]))
         : undefined;
     const editing = Boolean(route?.[2]);
+    const slug = route ? decodeURIComponent(route[1]) : null;
+    const detail = slug ? details[slug] : undefined;
 
     useEffect(() => {
-        window.scrollTo({
-            top: isShelf(hash) ? shelfScroll : 0,
-            behavior: "instant",
-        });
-    }, [hash]);
+        setDetailError(null);
+        if (!slug || detail) return;
+        let cancelled = false;
+        fetchBook(slug)
+            .then((d) => {
+                if (!cancelled) setDetails((p) => ({ ...p, [slug]: d }));
+            })
+            .catch(() => {
+                if (!cancelled)
+                    setDetailError(
+                        "Не получилось открыть книгу — попробуйте позже.",
+                    );
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [slug, detail]);
 
-    if (hash === "#/add" || (editing && book)) {
+    useLayoutEffect(() => {
+        window.scrollTo({ top: savedScroll(path), behavior: "instant" });
+    }, [path]);
+
+    if (path === "/add" || (editing && book)) {
         return (
             <>
                 <Background hour={hour} drift={dialOpen} />
@@ -174,13 +177,26 @@ function App() {
                     right={
                         <a
                             className="topbar-chip"
-                            href={book ? `#/book/${book.slug}` : "#/"}
+                            {...linkProps(book ? `/book/${book.slug}` : "/")}
                         >
                             ← {book ? "к отзыву" : "в шкаф"}
                         </a>
                     }
                 />
-                <AddPage book={editing ? book : undefined} onSaved={reload} />
+                {editing && !detail ? (
+                    <main className="review-page">
+                        {detailError ? (
+                            <p className="load-error">{detailError}</p>
+                        ) : (
+                            <p>Открываем книгу…</p>
+                        )}
+                    </main>
+                ) : (
+                    <AddPage
+                        book={editing ? detail : undefined}
+                        onSaved={reload}
+                    />
+                )}
             </>
         );
     }
@@ -193,12 +209,12 @@ function App() {
                     clock={clock}
                     onRandom={onRandom}
                     right={
-                        <a className="topbar-chip" href="#/">
+                        <a className="topbar-chip" {...linkProps("/")}>
                             ← в шкаф
                         </a>
                     }
                 />
-                <ReviewPage book={book} />
+                <ReviewPage book={book} detail={detail} />
             </>
         );
     }

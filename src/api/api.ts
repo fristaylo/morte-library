@@ -3,8 +3,6 @@ export interface Book {
     slug: string;
     title: string;
     author: string;
-    synopsis: string | null;
-    review: string | null;
     rating: number;
     pages: number | null;
     widthPx: number | null;
@@ -18,8 +16,19 @@ export interface Book {
     updatedAt: string;
 }
 
+export interface BookDetail extends Book {
+    synopsis: string | null;
+    review: string | null;
+}
+
 export async function fetchBooks(): Promise<Book[]> {
     const res = await fetch("/api/books");
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+    return res.json();
+}
+
+export async function fetchBook(slug: string): Promise<BookDetail> {
+    const res = await fetch(`/api/books/${encodeURIComponent(slug)}`);
     if (!res.ok) throw new Error(`API: ${res.status}`);
     return res.json();
 }

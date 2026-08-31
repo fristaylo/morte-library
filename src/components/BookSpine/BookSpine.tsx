@@ -7,6 +7,7 @@ import {
     spineImageUrl,
     spineWidth,
 } from "../../api/api";
+import { navigate } from "../../router";
 import "./BookSpine.scss";
 
 export default function BookSpine({
@@ -50,7 +51,7 @@ export default function BookSpine({
             style={style}
             aria-label={`${book.title} — ${book.author}`}
             onClick={() => {
-                window.location.hash = `#/book/${book.slug}`;
+                navigate(`/book/${book.slug}`);
             }}
         >
             <span
