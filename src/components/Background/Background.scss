@@ -1,79 +1,102 @@
+:root {
+    --bg-sky-0: #f2cdb4;
+    --bg-sky-1: #f6dbc2;
+    --bg-sky-2: #fbeed9;
+    --bg-r1a: rgb(240 217 204);
+    --bg-r1b: rgb(230 202 187);
+    --bg-r2a: rgb(227 200 184);
+    --bg-r2b: rgb(210 179 164);
+    --bg-r3a: rgb(182 172 158);
+    --bg-r3b: rgb(156 146 130);
+    --bg-r4a: rgb(143 154 137);
+    --bg-r4b: rgb(111 124 107);
+    --bg-r5a: rgb(100 120 106);
+    --bg-r5b: rgb(67 86 74);
+    --bg-r6a: rgb(77 99 85);
+    --bg-r6b: rgb(53 73 61);
+    --bg-r6c: rgb(32 44 36);
+    --bg-haze: #fdf0dc;
+    --bg-haze-o1: 0.22;
+    --bg-haze-o2: 0.4;
+    --bg-haze-o3: 0.5;
+    --bg-haze-o4: 0.2;
+    --bg-shade: rgb(15 25 19);
+    --bg-meadow: rgb(58 75 64);
+    --bg-glow: rgb(246 216 174);
+    --bg-dark: rgb(16 26 20);
+    --bg-stars: 0;
+    --bg-star-shift: 0px;
+}
+
 .site-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
     contain: strict;
+}
 
-    svg {
-        display: block;
-        width: 100%;
-        height: 100%;
-    }
+.site-bg-scene {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
 .site-bg-stars {
     position: absolute;
     inset: 0;
-
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: rgba(3, 4, 7, 0.32);
-        -webkit-mask-image: var(--sky-mask);
-        -webkit-mask-repeat: no-repeat;
-        -webkit-mask-position: 50% 100%;
-        -webkit-mask-size: cover;
-        mask-image: var(--sky-mask);
-        mask-repeat: no-repeat;
-        mask-position: 50% 100%;
-        mask-size: cover;
-    }
-
-    svg {
-        position: absolute;
-        inset: 0;
-    }
+    opacity: var(--bg-stars, 0);
 }
 
-.bg-star-0 {
-    animation: bg-twinkle 3.8s ease-in-out infinite;
+.bg-stars {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.bg-star-1 {
-    animation: bg-twinkle 5.1s ease-in-out 1.3s infinite;
+.bg-stars-drift {
+    transform: translateX(var(--bg-star-shift, 0px));
 }
 
-.bg-star-2 {
-    animation: bg-twinkle 6.7s ease-in-out 2.6s infinite;
-}
-
-@keyframes bg-twinkle {
-    50% {
-        opacity: 0.55;
-    }
+.site-bg-comets {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    aspect-ratio: 1600 / 900;
+    min-width: 100%;
+    min-height: 100%;
+    transform: translateX(-50%);
+    container-type: size;
 }
 
 .bg-comet {
+    position: absolute;
+    width: calc(140 / 16 * 1cqw);
+    height: calc(120 / 16 * 1cqw);
+    left: calc(var(--x) / 1600 * 100%);
+    top: calc(var(--y) / 900 * 100%);
+    margin-left: calc(-130 / 16 * 1cqw);
+    margin-top: calc(-60 / 16 * 1cqw);
     opacity: 0;
     animation: bg-comet linear infinite;
 }
 
 @keyframes bg-comet {
     0% {
-        transform: translate(var(--x0), var(--y0));
+        translate: 0 0;
         opacity: 0;
     }
     6% {
         opacity: 0.9;
     }
     12% {
-        transform: translate(var(--x1), var(--y1));
+        translate: calc(var(--dx) / 16 * 1cqw) calc(var(--dy) / 16 * 1cqw);
         opacity: 0;
     }
     100% {
-        transform: translate(var(--x1), var(--y1));
+        translate: calc(var(--dx) / 16 * 1cqw) calc(var(--dy) / 16 * 1cqw);
         opacity: 0;
     }
 }
@@ -81,11 +104,5 @@
 @media (prefers-reduced-motion: reduce) {
     .bg-comet {
         display: none;
-    }
-
-    .bg-star-0,
-    .bg-star-1,
-    .bg-star-2 {
-        animation: none;
     }
 }

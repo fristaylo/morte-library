@@ -1,6 +1,6 @@
-import { type CSSProperties, useRef } from "react";
+import { type CSSProperties, memo, useEffect, useRef } from "react";
 import "./Background.scss";
-import { useDaylight, type Rgb } from "./daylight";
+import { useDaylight } from "./daylight";
 
 const RIDGE_TOP =
     "M0 431 Q110 423 210 420 Q330 415 440 420 Q560 425 660 418 Q780 410 890 407 Q990 403 1090 406 Q1200 409 1300 405 Q1420 401 1600 408 L1600 900 L0 900 Z";
@@ -25,6 +25,37 @@ const STARS = Array.from({ length: 110 }, () => ({
     halo: rng() < 0.1,
 }));
 
+const STAR_ELEMENTS = STARS.map((s, i) => (
+    <g key={i}>
+        {s.halo && (
+            <circle
+                cx={s.x}
+                cy={s.y}
+                r={s.r * 6}
+                fill="url(#bg-star-halo)"
+                opacity="0.35"
+            />
+        )}
+        <circle cx={s.x} cy={s.y} r={s.r} fill="#fff" fillOpacity={s.a} />
+        {s.halo && (
+            <circle
+                cx={s.x - 1600}
+                cy={s.y}
+                r={s.r * 6}
+                fill="url(#bg-star-halo)"
+                opacity="0.35"
+            />
+        )}
+        <circle
+            cx={s.x - 1600}
+            cy={s.y}
+            r={s.r}
+            fill="#fff"
+            fillOpacity={s.a}
+        />
+    </g>
+));
+
 const COMET_ANGLE = 25;
 const COMET_DX = Math.cos((COMET_ANGLE * Math.PI) / 180);
 const COMET_DY = Math.sin((COMET_ANGLE * Math.PI) / 180);
@@ -36,80 +67,7 @@ const COMETS = [
 
 const STAR_DRIFT = 1600 / 12;
 
-const SKY_MASK = `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'><path fill='#fff' fill-rule='evenodd' d='M0 0H1600V900H0Z ${RIDGE_TOP}'/></svg>`,
-)}")`;
-
-const STAR_LAYERS = [0, 1, 2].map((layer) =>
-    STARS.filter((_, i) => i % 3 === layer).map((s, i) => (
-        <g key={i}>
-            {s.halo && (
-                <circle
-                    cx={s.x}
-                    cy={s.y}
-                    r={s.r * 6}
-                    fill="url(#bg-star-halo)"
-                    opacity="0.35"
-                />
-            )}
-            <circle cx={s.x} cy={s.y} r={s.r} fill="#fff" fillOpacity={s.a} />
-            {s.halo && (
-                <circle
-                    cx={s.x - 1600}
-                    cy={s.y}
-                    r={s.r * 6}
-                    fill="url(#bg-star-halo)"
-                    opacity="0.35"
-                />
-            )}
-            <circle
-                cx={s.x - 1600}
-                cy={s.y}
-                r={s.r}
-                fill="#fff"
-                fillOpacity={s.a}
-            />
-        </g>
-    )),
-);
-
-const RIDGES: [string, Rgb, Rgb][] = [
-    ["bg-r1", [240, 217, 204], [230, 202, 187]],
-    ["bg-r2", [227, 200, 184], [210, 179, 164]],
-    ["bg-r3", [182, 172, 158], [156, 146, 130]],
-    ["bg-r4", [143, 154, 137], [111, 124, 107]],
-    ["bg-r5", [100, 120, 106], [67, 86, 74]],
-];
-const R6: [Rgb, Rgb, Rgb] = [
-    [77, 99, 85],
-    [53, 73, 61],
-    [32, 44, 36],
-];
-const MEADOW: Rgb = [58, 75, 64];
-const GLOW: Rgb = [246, 216, 174];
-const DARK: Rgb = [16, 26, 20];
-const SHADE: Rgb = [15, 25, 19];
-
-export default function Background({
-    hour,
-    drift = false,
-}: {
-    hour: number;
-    drift?: boolean;
-}) {
-    const light = useDaylight(hour);
-    const shiftRef = useRef((hour * STAR_DRIFT) % 1600);
-    if (drift) shiftRef.current = (hour * STAR_DRIFT) % 1600;
-    const shift = shiftRef.current;
-    const tone = light ? light.tone : (c: Rgb) => `rgb(${c.join(" ")})`;
-    const grade = (c: Rgb) =>
-        tone(
-            c.map((v, n) =>
-                light ? v + (light.ridge[n] - v) * light.ridgeMix : v,
-            ) as Rgb,
-        );
-    const haze = light?.haze ?? "#fdf0dc";
-    const hazeOp = light?.hazeOpacity ?? 1;
+function BackgroundScene({ night }: { night: boolean }) {
     return (
         <div className="site-bg" aria-hidden="true">
             <svg
@@ -119,34 +77,22 @@ export default function Background({
             >
                 <defs>
                     <linearGradient id="bg-sky" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                            offset="0"
-                            stopColor={light?.sky[0] ?? "#f2cdb4"}
-                        />
-                        <stop
-                            offset="0.26"
-                            stopColor={light?.sky[1] ?? "#f6dbc2"}
-                        />
-                        <stop
-                            offset="0.45"
-                            stopColor={light?.sky[2] ?? "#fbeed9"}
-                        />
-                        <stop
-                            offset="1"
-                            stopColor={light?.sky[2] ?? "#fbeed9"}
-                        />
+                        <stop offset="0" stopColor="var(--bg-sky-0)" />
+                        <stop offset="0.26" stopColor="var(--bg-sky-1)" />
+                        <stop offset="0.45" stopColor="var(--bg-sky-2)" />
+                        <stop offset="1" stopColor="var(--bg-sky-2)" />
                     </linearGradient>
-                    {RIDGES.map(([id, top, bottom]) => (
+                    {[1, 2, 3, 4, 5].map((n) => (
                         <linearGradient
-                            key={id}
-                            id={id}
+                            key={n}
+                            id={`bg-r${n}`}
                             x1="0"
                             y1="0"
                             x2="0"
                             y2="1"
                         >
-                            <stop offset="0" stopColor={grade(top)} />
-                            <stop offset="1" stopColor={grade(bottom)} />
+                            <stop offset="0" stopColor={`var(--bg-r${n}a)`} />
+                            <stop offset="1" stopColor={`var(--bg-r${n}b)`} />
                         </linearGradient>
                     ))}
                     <linearGradient
@@ -156,9 +102,9 @@ export default function Background({
                         x2="0.18"
                         y2="1"
                     >
-                        <stop offset="0" stopColor={grade(R6[0])} />
-                        <stop offset="0.5" stopColor={grade(R6[1])} />
-                        <stop offset="1" stopColor={grade(R6[2])} />
+                        <stop offset="0" stopColor="var(--bg-r6a)" />
+                        <stop offset="0.5" stopColor="var(--bg-r6b)" />
+                        <stop offset="1" stopColor="var(--bg-r6c)" />
                     </linearGradient>
                     <linearGradient
                         id="bg-m1"
@@ -168,13 +114,21 @@ export default function Background({
                         x2="0"
                         y2="715"
                     >
-                        <stop offset="0" stopColor={haze} stopOpacity="0" />
+                        <stop
+                            offset="0"
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="0"
+                        />
                         <stop
                             offset="0.47"
-                            stopColor={haze}
-                            stopOpacity={0.22 * hazeOp}
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="var(--bg-haze-o1)"
                         />
-                        <stop offset="1" stopColor={haze} stopOpacity="0" />
+                        <stop
+                            offset="1"
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="0"
+                        />
                     </linearGradient>
                     <linearGradient
                         id="bg-m2"
@@ -184,13 +138,21 @@ export default function Background({
                         x2="0"
                         y2="795"
                     >
-                        <stop offset="0" stopColor={haze} stopOpacity="0" />
+                        <stop
+                            offset="0"
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="0"
+                        />
                         <stop
                             offset="0.48"
-                            stopColor={haze}
-                            stopOpacity={0.4 * hazeOp}
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="var(--bg-haze-o2)"
                         />
-                        <stop offset="1" stopColor={haze} stopOpacity="0" />
+                        <stop
+                            offset="1"
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="0"
+                        />
                     </linearGradient>
                     <linearGradient
                         id="bg-m3"
@@ -200,16 +162,20 @@ export default function Background({
                         x2="0"
                         y2="900"
                     >
-                        <stop offset="0" stopColor={haze} stopOpacity="0" />
+                        <stop
+                            offset="0"
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="0"
+                        />
                         <stop
                             offset="0.76"
-                            stopColor={haze}
-                            stopOpacity={0.5 * hazeOp}
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="var(--bg-haze-o3)"
                         />
                         <stop
                             offset="1"
-                            stopColor={haze}
-                            stopOpacity={0.2 * hazeOp}
+                            stopColor="var(--bg-haze)"
+                            stopOpacity="var(--bg-haze-o4)"
                         />
                     </linearGradient>
                     <linearGradient
@@ -222,18 +188,26 @@ export default function Background({
                     >
                         <stop
                             offset="0"
-                            stopColor={tone(SHADE)}
+                            stopColor="var(--bg-shade)"
                             stopOpacity="0.45"
                         />
-                        <stop offset="1" stopColor={tone(SHADE)} stopOpacity="0" />
+                        <stop
+                            offset="1"
+                            stopColor="var(--bg-shade)"
+                            stopOpacity="0"
+                        />
                     </linearGradient>
                     <linearGradient id="bg-lshade" x1="0" y1="0" x2="0" y2="1">
                         <stop
                             offset="0"
-                            stopColor={tone(SHADE)}
+                            stopColor="var(--bg-shade)"
                             stopOpacity="0.35"
                         />
-                        <stop offset="1" stopColor={tone(SHADE)} stopOpacity="0" />
+                        <stop
+                            offset="1"
+                            stopColor="var(--bg-shade)"
+                            stopOpacity="0"
+                        />
                     </linearGradient>
                 </defs>
                 <rect width="1600" height="900" fill="url(#bg-sky)" />
@@ -273,12 +247,12 @@ export default function Background({
                     d="M0 756 L80 744 L170 729 L262 710 L302 703 L320 706 L380 691 L440 680 L502 670 L582 663 L662 660 L722 660 L762 664 L832 672 L902 684 L938 691 L956 689 L1042 710 L1112 723 L1182 735 L1252 747 L1322 756 L1392 762 L1462 765 L1532 767 L1600 765 L1600 900 L0 900 Z"
                 />
                 <path
-                    fill={tone(MEADOW)}
+                    fill="var(--bg-meadow)"
                     opacity="0.2"
                     d="M344 708 L500 678 L660 666 L636 690 L478 700 L374 720 Z"
                 />
                 <path
-                    fill={tone(MEADOW)}
+                    fill="var(--bg-meadow)"
                     opacity="0.18"
                     d="M1046 716 L1182 741 L1296 758 L1246 772 L1120 752 L1004 730 Z"
                 />
@@ -298,12 +272,12 @@ export default function Background({
                     d="M1600 629 L1548 667 L1497 700 L1388 767 L1284 821 L1236 840 L1284 859 L1372 810 L1478 747 L1560 690 L1600 662 Z"
                 />
                 <path
-                    fill={tone(GLOW)}
+                    fill="var(--bg-glow)"
                     opacity="0.18"
                     d="M1600 624 L1545 662 L1495 695 L1430 752 L1414 749 L1388 762 L1330 788 L1262 830 L1246 826 L1254 838 L1268 842 L1336 800 L1394 774 L1420 761 L1436 764 L1501 707 L1551 674 L1600 636 Z"
                 />
                 <path
-                    fill={tone(GLOW)}
+                    fill="var(--bg-glow)"
                     opacity="0.12"
                     d="M0 774 L70 785 L140 798 L220 815 L302 834 L342 843 L360 839 L440 860 L520 880 L578 900 L508 886 L432 868 L356 847 L338 851 L298 842 L216 823 L136 806 L66 793 L0 782 Z"
                 />
@@ -316,60 +290,36 @@ export default function Background({
                     d="M1500 762 L1440 810 L1360 872 L1300 905 L1400 905 L1480 838 L1524 776 Z"
                 />
                 <path
-                    fill={tone(DARK)}
+                    fill="var(--bg-dark)"
                     opacity="0.15"
                     d="M1150 872 L1096 892 L1140 905 L1206 878 Z"
                 />
                 <path
-                    fill={tone(DARK)}
+                    fill="var(--bg-dark)"
                     opacity="0.14"
                     d="M150 806 L260 844 L350 874 L300 890 L190 852 L110 820 Z"
                 />
             </svg>
-            {light && light.stars > 0 && (
-                <div
-                    className="site-bg-stars"
-                    style={
-                        {
-                            opacity: light.stars,
-                            "--sky-mask": SKY_MASK,
-                        } as CSSProperties
-                    }
-                >
-                    {STAR_LAYERS.map((stars, n) => (
-                        <svg
-                            key={n}
-                            className={`bg-star-${n}`}
-                            viewBox="0 0 1600 900"
-                            preserveAspectRatio="xMidYMax slice"
-                        >
-                            {n === 0 && (
-                                <defs>
-                                    <radialGradient id="bg-star-halo">
-                                        <stop
-                                            offset="0"
-                                            stopColor="#fff"
-                                            stopOpacity="0.9"
-                                        />
-                                        <stop
-                                            offset="1"
-                                            stopColor="#fff"
-                                            stopOpacity="0"
-                                        />
-                                    </radialGradient>
-                                </defs>
-                            )}
-                            <g transform={`translate(${shift.toFixed(1)} 0)`}>
-                                {stars}
-                            </g>
-                        </svg>
-                    ))}
+            {night && (
+                <div className="site-bg-stars">
                     <svg
-                        className="site-bg-comets"
+                        className="bg-stars"
                         viewBox="0 0 1600 900"
                         preserveAspectRatio="xMidYMax slice"
                     >
                         <defs>
+                            <radialGradient id="bg-star-halo">
+                                <stop
+                                    offset="0"
+                                    stopColor="#fff"
+                                    stopOpacity="0.9"
+                                />
+                                <stop
+                                    offset="1"
+                                    stopColor="#fff"
+                                    stopOpacity="0"
+                                />
+                            </radialGradient>
                             <linearGradient
                                 id="bg-comet-tail"
                                 gradientUnits="userSpaceOnUse"
@@ -386,16 +336,25 @@ export default function Background({
                                 <stop offset="1" stopColor="#fff" />
                             </linearGradient>
                         </defs>
+                        <path
+                            fill="rgba(3, 4, 7, 0.32)"
+                            fillRule="evenodd"
+                            d={`M0 0H1600V900H0Z ${RIDGE_TOP}`}
+                        />
+                        <g className="bg-stars-drift">{STAR_ELEMENTS}</g>
+                    </svg>
+                    <div className="site-bg-comets">
                         {COMETS.map((c) => (
-                            <g
+                            <svg
                                 key={c.x}
                                 className="bg-comet"
+                                viewBox="-130 -60 140 120"
                                 style={
                                     {
-                                        "--x0": `${c.x}px`,
-                                        "--y0": `${c.y}px`,
-                                        "--x1": `${c.x + c.travel * COMET_DX}px`,
-                                        "--y1": `${c.y + c.travel * COMET_DY}px`,
+                                        "--x": c.x,
+                                        "--y": c.y,
+                                        "--dx": c.travel * COMET_DX,
+                                        "--dy": c.travel * COMET_DY,
                                         animationDuration: `${c.dur}s`,
                                         animationDelay: `${c.delay}s`,
                                     } as CSSProperties
@@ -418,11 +377,32 @@ export default function Background({
                                     />
                                     <circle r={c.w * 1.2} fill="#fff" />
                                 </g>
-                            </g>
+                            </svg>
                         ))}
-                    </svg>
+                    </div>
                 </div>
             )}
         </div>
     );
+}
+
+const Scene = memo(BackgroundScene);
+
+export default function Background({
+    hour,
+    drift = false,
+}: {
+    hour: number;
+    drift?: boolean;
+}) {
+    const night = useDaylight(hour);
+    const shiftRef = useRef((hour * STAR_DRIFT) % 1600);
+    if (drift) shiftRef.current = (hour * STAR_DRIFT) % 1600;
+    useEffect(() => {
+        document.documentElement.style.setProperty(
+            "--bg-star-shift",
+            `${shiftRef.current.toFixed(1)}px`,
+        );
+    });
+    return <Scene night={night} />;
 }

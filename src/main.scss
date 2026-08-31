@@ -33,7 +33,7 @@
     --ink-faint: #90a0b2;
     --accent: #56789c;
 
-    --glass: color-mix(in srgb, var(--surface) 66%, transparent);
+    --glass: color-mix(in srgb, var(--surface) 90%, transparent);
     --line: rgba(34, 43, 54, 0.1);
 
     --shadow-float: 0 22px 44px -20px rgba(50, 72, 100, 0.32);
@@ -364,11 +364,9 @@ button.topbar-chip:hover {
 }
 
 .btn-ghost {
-    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
     color: var(--ink);
     border: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
 
     &:hover:not(:disabled) {
         background: var(--surface);
@@ -395,8 +393,6 @@ button.topbar-chip:hover {
     border-radius: var(--radius-lg);
     background: var(--glass);
     border: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
     font-family: var(--font-display);
     font-style: italic;
     font-size: 1.2rem;

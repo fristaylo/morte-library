@@ -160,7 +160,7 @@ function AddPage({
     async function pickSpine(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
-        const packed = await shrinkImage(file, 256);
+        const packed = await shrinkImage(file, 60);
         setSpine(packed);
         setSpinePreview((prev) => {
             if (prev) URL.revokeObjectURL(prev);

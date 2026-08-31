@@ -89,6 +89,23 @@ export function blend(a: Phase, b: Phase, t: number) {
 
 const cache: (Phase | undefined)[] = [];
 
+const RIDGES: [Rgb, Rgb][] = [
+    [[240, 217, 204], [230, 202, 187]],
+    [[227, 200, 184], [210, 179, 164]],
+    [[182, 172, 158], [156, 146, 130]],
+    [[143, 154, 137], [111, 124, 107]],
+    [[100, 120, 106], [67, 86, 74]],
+];
+const R6: [Rgb, Rgb, Rgb] = [
+    [77, 99, 85],
+    [53, 73, 61],
+    [32, 44, 36],
+];
+const MEADOW: Rgb = [58, 75, 64];
+const GLOW: Rgb = [246, 216, 174];
+const DARK: Rgb = [16, 26, 20];
+const SHADE: Rgb = [15, 25, 19];
+
 export function useDaylight(hour: number) {
     const [, bump] = useReducer((n: number) => n + 1, 0);
     const { i, j, t } = segment(hour);
@@ -112,13 +129,39 @@ export function useDaylight(hour: number) {
     useEffect(() => {
         if (!light) return;
         const style = document.documentElement.style;
-        for (const [k, v] of Object.entries(light.vars)) {
+        const set = (k: string, v: string) => {
             if (applied.current[k] !== v) {
                 applied.current[k] = v;
                 style.setProperty(k, v);
             }
-        }
+        };
+        for (const [k, v] of Object.entries(light.vars)) set(k, v);
+        const tone = light.tone;
+        const grade = (c: Rgb) =>
+            tone(
+                c.map((v, n) => v + (light.ridge[n] - v) * light.ridgeMix) as Rgb,
+            );
+        set("--bg-sky-0", light.sky[0]);
+        set("--bg-sky-1", light.sky[1]);
+        set("--bg-sky-2", light.sky[2]);
+        RIDGES.forEach(([top, bottom], n) => {
+            set(`--bg-r${n + 1}a`, grade(top));
+            set(`--bg-r${n + 1}b`, grade(bottom));
+        });
+        set("--bg-r6a", grade(R6[0]));
+        set("--bg-r6b", grade(R6[1]));
+        set("--bg-r6c", grade(R6[2]));
+        set("--bg-haze", light.haze);
+        set("--bg-haze-o1", `${0.22 * light.hazeOpacity}`);
+        set("--bg-haze-o2", `${0.4 * light.hazeOpacity}`);
+        set("--bg-haze-o3", `${0.5 * light.hazeOpacity}`);
+        set("--bg-haze-o4", `${0.2 * light.hazeOpacity}`);
+        set("--bg-shade", tone(SHADE));
+        set("--bg-meadow", tone(MEADOW));
+        set("--bg-glow", tone(GLOW));
+        set("--bg-dark", tone(DARK));
+        set("--bg-stars", `${light.stars}`);
     });
 
-    return light;
+    return light !== null && light.stars > 0;
 }

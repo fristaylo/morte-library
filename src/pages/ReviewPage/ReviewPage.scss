@@ -28,10 +28,8 @@
     height: 44px;
     padding: 0;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
     border: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
     color: var(--ink-soft);
     cursor: pointer;
     transition:
@@ -204,8 +202,6 @@ img.review-cover {
     border-radius: 999px;
     background: var(--glass);
     border: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
     color: var(--ink-soft);
     text-decoration: none;
     font-size: 0.9rem;

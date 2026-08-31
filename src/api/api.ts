@@ -85,7 +85,7 @@ export function spineImageUrl(book: Book): string {
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 350;	
 const MIN_WIDTH = 22;
-const MAX_WIDTH = 82;
+const MAX_WIDTH = 60;
 const DEFAULT_RATIO = 7;
 const DEFAULT_PAGES = 300;
 

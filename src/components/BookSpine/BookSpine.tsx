@@ -44,6 +44,8 @@ export default function BookSpine({
         color: book.spineTextColor,
     };
 
+    const side = Math.abs(yaw) < 0.15 ? null : yaw < 0 ? "right" : "left";
+
     return (
         <button
             type="button"
@@ -55,11 +57,7 @@ export default function BookSpine({
             }}
         >
             <span
-                className={
-                    book.hasSpineImage
-                        ? "book-face book-spine book-spine-image"
-                        : "book-face book-spine"
-                }
+                className="book-face book-spine"
                 style={spineStyle}
             >
                 {book.hasSpineImage ? (
@@ -78,14 +76,12 @@ export default function BookSpine({
                     </>
                 )}
             </span>
-            <span
-                className="book-face book-side book-side-left"
-                aria-hidden="true"
-            />
-            <span
-                className="book-face book-side book-side-right"
-                aria-hidden="true"
-            />
+            {side && (
+                <span
+                    className={`book-face book-side book-side-${side}`}
+                    aria-hidden="true"
+                />
+            )}
             <span className="book-face book-top" aria-hidden="true">
                 <span className="book-pages" />
             </span>
