@@ -1,9 +1,9 @@
-import type {
-    DraggableAttributes,
-    DraggableSyntheticListeners,
+import {
+    type DraggableAttributes,
+    type DraggableSyntheticListeners,
+    useDraggable,
 } from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
-import { type CSSProperties, type Ref, useRef } from "react";
+import { type CSSProperties, memo, type Ref, useRef } from "react";
 import type { Book } from "../../api/api";
 import {
     bookLook,
@@ -103,7 +103,7 @@ function Spine({
     );
 }
 
-export default function BookSpine({
+function BookSpine({
     book,
     yaw = 0,
     rank = 0,
@@ -114,7 +114,7 @@ export default function BookSpine({
     rank?: number;
     sortable?: boolean;
 }) {
-    const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: book.slug,
         disabled: !sortable,
     });
@@ -144,6 +144,8 @@ export default function BookSpine({
         />
     );
 }
+
+export default memo(BookSpine);
 
 export function BookSpinePreview({
     book,

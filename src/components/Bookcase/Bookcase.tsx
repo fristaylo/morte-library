@@ -5,15 +5,11 @@ import {
     DragOverlay,
     type DragStartEvent,
     type DropAnimation,
-    MeasuringStrategy,
     MouseSensor,
-    pointerWithin,
     TouchSensor,
-    useDroppable,
     useSensor,
     useSensors,
 } from "@dnd-kit/core";
-import { SortableContext } from "@dnd-kit/sortable";
 import {
     memo,
     type ReactNode,
@@ -59,6 +55,7 @@ const DEFAULT_METRICS: ShelfMetrics = {
 
 const DROP_MS = 250;
 const DROP_EASE = "cubic-bezier(0.22, 0.61, 0.36, 1)";
+const FLIP_ID = "book-flip";
 
 function translate(t: { x: number; y: number }): string {
     return `translate3d(${t.x}px, ${t.y}px, 0)`;
@@ -86,13 +83,15 @@ const dropAnimation: DropAnimation = {
             easing: DROP_EASE,
             fill: "forwards",
         });
+        const t = getComputedStyle(active.node).translate;
+        const [tx = 0, ty = 0] = t === "none" ? [] : t.split(" ").map(parseFloat);
         const ghost = active.node.getBoundingClientRect();
         return [
             { transform: translate(initial) },
             {
                 transform: translate({
-                    x: initial.x + ghost.left - landed.left,
-                    y: initial.y + ghost.top - landed.top,
+                    x: initial.x + ghost.left - tx - landed.left,
+                    y: initial.y + ghost.top - ty - landed.top,
                 }),
             },
         ];
@@ -232,30 +231,6 @@ function resolveDrop(
     }
 
     return { categoryId, insertAt };
-}
-
-function CategoryGroup({
-    categoryId,
-    rows,
-    startIndex,
-    renderRow,
-}: {
-    categoryId: number;
-    rows: Row[];
-    startIndex: number;
-    renderRow: (row: Row, i: number) => ReactNode;
-}) {
-    const { setNodeRef } = useDroppable({ id: `cat:${categoryId}` });
-    return (
-        <div className="bookcase-category" ref={setNodeRef}>
-            <SortableContext
-                items={rows.flatMap((row) => row.books.map((b) => b.slug))}
-                strategy={() => null}
-            >
-                {rows.map((row, k) => renderRow(row, startIndex + k))}
-            </SortableContext>
-        </div>
-    );
 }
 
 function CategoryDialog({
@@ -439,7 +414,7 @@ function Bookcase({
     }, [layout]);
 
     useLayoutEffect(() => {
-        if (!activeSlug) return;
+        if (!activeSlug && posRef.current.size === 0) return;
         const body = bodyRef.current;
         if (!body) return;
         const els = Array.from(
@@ -458,17 +433,13 @@ function Bookcase({
             const dx = prev.x - x;
             const dy = prev.y - y;
             if (dx === 0 && dy === 0) continue;
-            el.style.transition = "none";
-            el.style.translate = `${dx}px ${dy}px`;
+            el.getAnimations().find((a) => a.id === FLIP_ID)?.cancel();
+            el.animate(
+                [{ translate: `${dx}px ${dy}px` }, { translate: "none" }],
+                { id: FLIP_ID, duration: DROP_MS, easing: DROP_EASE },
+            );
         }
-        posRef.current = next;
-        const id = requestAnimationFrame(() => {
-            for (const el of els) {
-                el.style.transition = "";
-                el.style.translate = "";
-            }
-        });
-        return () => cancelAnimationFrame(id);
+        posRef.current = activeSlug ? next : new Map();
     });
 
     const mouseSensor = useSensor(MouseSensor, {
@@ -505,62 +476,68 @@ function Bookcase({
         }
     };
 
-    const onDragMove = (event: DragMoveEvent) => {
+    const reorderFor = (
+        delta: { x: number; y: number },
+        slug: string,
+    ): Book[] | null => {
         const body = bodyRef.current;
         const start = startCenterRef.current;
-        const activeSlugStr = String(event.active.id);
-        if (!body || !start) return;
+        if (!body || !start) return null;
         const target = resolveDrop(
             body,
             itemsRef.current,
-            activeSlugStr,
+            slug,
             categories,
-            start.x + event.delta.x,
-            start.y + event.delta.y,
+            start.x + delta.x,
+            start.y + delta.y,
             ghostShrinkRef.current,
         );
-        if (!target) return;
+        if (!target) return null;
         const prev = lastTargetRef.current;
         if (
             prev &&
             prev.categoryId === target.categoryId &&
             prev.insertAt === target.insertAt
         ) {
-            return;
+            return null;
         }
         lastTargetRef.current = target;
-        const active = itemsRef.current.find((b) => b.slug === activeSlugStr);
-        if (!active) return;
-        const rest = itemsRef.current.filter((b) => b.slug !== activeSlugStr);
+        const active = itemsRef.current.find((b) => b.slug === slug);
+        if (!active) return null;
+        const rest = itemsRef.current.filter((b) => b.slug !== slug);
         const next = rest.slice();
         next.splice(target.insertAt, 0, {
             ...active,
             categoryId: target.categoryId,
         });
-        setOrder(next);
+        return next;
+    };
+
+    const onDragMove = (event: DragMoveEvent) => {
+        const next = reorderFor(event.delta, String(event.active.id));
+        if (next) setOrder(next);
     };
 
     const onDragCancel = () => {
+        startCenterRef.current = null;
         setActiveSlug(null);
-        posRef.current.clear();
         lastTargetRef.current = null;
         if (snapshotRef.current) setOrder(snapshotRef.current);
     };
 
     const onDragEnd = async (event: DragEndEvent) => {
-        setActiveSlug(null);
-        posRef.current.clear();
-        lastTargetRef.current = null;
-        const snapshot = snapshotRef.current;
         const activeSlugStr = String(event.active.id);
+        const final = reorderFor(event.delta, activeSlugStr) ?? itemsRef.current;
+        startCenterRef.current = null;
+        lastTargetRef.current = null;
+        setActiveSlug(null);
+        if (final !== itemsRef.current) setOrder(final);
+        const snapshot = snapshotRef.current;
         const sourceBook = snapshot?.find((b) => b.slug === activeSlugStr);
-        const currentBook = itemsRef.current.find(
-            (b) => b.slug === activeSlugStr,
-        );
+        const currentBook = final.find((b) => b.slug === activeSlugStr);
         if (!snapshot || !sourceBook || !currentBook) return;
         const sameOrder =
-            snapshot.map((b) => b.slug).join() ===
-            itemsRef.current.map((b) => b.slug).join();
+            snapshot.map((b) => b.slug).join() === final.map((b) => b.slug).join();
         if (sameOrder && sourceBook.categoryId === currentBook.categoryId) {
             return;
         }
@@ -570,7 +547,7 @@ function Bookcase({
         ]);
         const groups: OrderGroup[] = [...affected].map((categoryId) => ({
             categoryId,
-            slugs: itemsRef.current
+            slugs: final
                 .filter((b) => b.categoryId === categoryId)
                 .map((b) => b.slug),
         }));
@@ -693,19 +670,16 @@ function Bookcase({
         }
         const categoryId = row.categoryId;
         const groupRows: Row[] = [row];
+        const startIndex = i;
         let j = i + 1;
         while (j <= last && rows[j].categoryId === categoryId) {
             groupRows.push(rows[j]);
             j += 1;
         }
         visible.push(
-            <CategoryGroup
-                key={`cat:${categoryId}`}
-                categoryId={categoryId}
-                rows={groupRows}
-                startIndex={i}
-                renderRow={renderRow}
-            />,
+            <div className="bookcase-category" key={`cat:${categoryId}`}>
+                {groupRows.map((r, k) => renderRow(r, startIndex + k))}
+            </div>,
         );
         i = j;
     }
@@ -735,10 +709,6 @@ function Bookcase({
             <div className="bookcase-top" aria-hidden="true" />
             <DndContext
                 sensors={sensors}
-                collisionDetection={pointerWithin}
-                measuring={{
-                    droppable: { strategy: MeasuringStrategy.WhileDragging },
-                }}
                 onDragStart={onDragStart}
                 onDragMove={onDragMove}
                 onDragEnd={onDragEnd}
