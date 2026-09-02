@@ -1,0 +1,113 @@
+.rte-editor {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.5);
+    overflow: hidden;
+
+    &:focus-within {
+        border-color: var(--accent);
+    }
+}
+
+.rte-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--glass);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+
+    @media (max-width: 640px) {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+}
+
+.rte-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 0.9rem;
+
+    &:hover {
+        background: rgba(214, 226, 238, 0.55);
+        color: var(--ink);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--accent);
+    }
+}
+
+.rte-btn--on {
+    background: var(--ink);
+    color: var(--surface);
+
+    &:hover {
+        background: var(--ink);
+        color: var(--surface);
+    }
+}
+
+.rte-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--line);
+    margin: 0 6px;
+    align-self: center;
+}
+
+.rte-spin {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--line);
+    border-top-color: var(--ink-soft);
+    animation: rte-spin 0.7s linear infinite;
+}
+
+@keyframes rte-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.rte-input {
+    min-height: 260px;
+    padding: 16px;
+    outline: none;
+    overflow-wrap: break-word;
+
+    &.review-rich {
+        max-width: none;
+        margin: 0;
+    }
+
+    &:empty::before {
+        content: attr(data-placeholder);
+        color: var(--ink-faint);
+        pointer-events: none;
+    }
+}
+
+.rte-error {
+    padding: 0 16px 12px;
+    color: #b4574d;
+    font-weight: 600;
+    font-size: 0.9rem;
+}

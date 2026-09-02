@@ -3,6 +3,7 @@ import type { Book, BookDetail } from "../../api/api";
 import { coverUrl, formatDateRead } from "../../api/api";
 import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../hooks/useAuth";
+import { sanitizeHtml } from "../../html";
 import { linkProps, navigate } from "../../router";
 import "./ReviewPage.scss";
 
@@ -114,10 +115,13 @@ function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
                 {detail?.review && (
                     <section className="review-body">
                         <h2>Мой отзыв</h2>
-                        {detail.review.split("\n\n").map((paragraph, i) => (
-                            // biome-ignore lint/suspicious/noArrayIndexKey: статичные абзацы
-                            <p key={i}>{paragraph}</p>
-                        ))}
+                        <div
+                            className="review-rich"
+                            // biome-ignore lint/security/noDangerouslySetInnerHtml: отзыв чистится sanitizeHtml
+                            dangerouslySetInnerHTML={{
+                                __html: sanitizeHtml(detail.review),
+                            }}
+                        />
                     </section>
                 )}
             </article>

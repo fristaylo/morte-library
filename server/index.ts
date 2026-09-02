@@ -18,6 +18,8 @@ const DB_HOST = process.env.DB_HOST ?? "localhost";
 const DB_PORT = 3306;
 const DB_NAME = "morte";
 
+const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
 const pool = mysql.createPool({
     host: DB_HOST,
     port: DB_PORT,
@@ -64,6 +66,15 @@ CREATE TABLE IF NOT EXISTS categories (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(191) NOT NULL,
     position INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
+const IMAGES_SCHEMA = `
+CREATE TABLE IF NOT EXISTS images (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    mime VARCHAR(64) NOT NULL,
+    data MEDIUMBLOB NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
@@ -193,6 +204,46 @@ async function serveImage(
     return new Response(row.image, {
         headers: {
             "Content-Type": row.mime ?? "application/octet-stream",
+            "Cache-Control": "public, max-age=31536000, immutable",
+        },
+    });
+}
+
+async function uploadImage(req: Request): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const form = await req.formData();
+    const file = form.get("image");
+    if (
+        !(file instanceof File) ||
+        file.size === 0 ||
+        file.size > 8 * 1024 * 1024 ||
+        !IMAGE_MIMES.has(file.type)
+    ) {
+        return json({ error: "Bad image" }, 400);
+    }
+    const data = Buffer.from(await file.arrayBuffer());
+    const [res] = await pool.query(
+        "INSERT INTO images (mime, data) VALUES (?, ?)",
+        [file.type, data],
+    );
+    const id = (res as { insertId: number }).insertId;
+    return json({ url: `/api/images/${id}` }, 201);
+}
+
+async function serveUploadedImage(id: number): Promise<Response> {
+    const [rows] = await pool.query(
+        "SELECT data, mime FROM images WHERE id = ?",
+        [id],
+    );
+    const row = (rows as { data: Buffer; mime: string }[])[0];
+    if (!row) {
+        return json({ error: "Not found" }, 404);
+    }
+    return new Response(row.data, {
+        headers: {
+            "Content-Type": row.mime,
             "Cache-Control": "public, max-age=31536000, immutable",
         },
     });
@@ -573,6 +624,7 @@ async function seedCategories(): Promise<void> {
 await waitForDb();
 await pool.query(SCHEMA);
 await pool.query(CATEGORIES_SCHEMA);
+await pool.query(IMAGES_SCHEMA);
 await pool
     .query("ALTER TABLE books ADD COLUMN spine_ratio DECIMAL(5, 3) NULL")
     .catch(() => {});
@@ -623,6 +675,13 @@ Bun.serve({
             }
             if (cat && req.method === "DELETE") {
                 return await deleteCategory(req, Number(cat[1]));
+            }
+            if (pathname === "/api/images" && req.method === "POST") {
+                return await uploadImage(req);
+            }
+            const img = pathname.match(/^\/api\/images\/(\d+)$/);
+            if (img && req.method === "GET") {
+                return await serveUploadedImage(Number(img[1]));
             }
             const one = pathname.match(/^\/api\/books\/([^/]+)$/);
             if (one && req.method === "PUT") {

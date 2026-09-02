@@ -67,6 +67,14 @@ export async function deleteBook(slug: string): Promise<void> {
     if (!res.ok) throw new Error(`API: ${res.status}`);
 }
 
+export async function uploadImage(file: File): Promise<string> {
+    const data = new FormData();
+    data.set("image", file);
+    const res = await fetch("/api/images", { method: "POST", body: data });
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+    return (await res.json()).url as string;
+}
+
 export async function fetchCategories(): Promise<Category[]> {
     const res = await fetch("/api/categories");
     if (!res.ok) throw new Error(`API: ${res.status}`);
