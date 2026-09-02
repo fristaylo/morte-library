@@ -1,9 +1,4 @@
-import {
-    type KeyboardEvent,
-    type PointerEvent,
-    useRef,
-    useState,
-} from "react";
+import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import Dialog from "../Dialogs/Dialog";
 import "./TimeDial.scss";
 
@@ -106,11 +101,7 @@ export default function TimeDial({
                     </g>
                 </svg>
             </button>
-            <Dialog
-                open={open}
-                onClose={() => show(false)}
-                title="Время суток"
-            >
+            <Dialog open={open} onClose={() => show(false)} title="Время суток">
                 <div className="time-dial">
                     <svg
                         ref={faceRef}
@@ -228,7 +219,12 @@ export default function TimeDial({
                                 strokeWidth="4"
                                 strokeLinecap="round"
                             />
-                            <circle cx="120" cy="64" r="3.5" fill="var(--gold)" />
+                            <circle
+                                cx="120"
+                                cy="64"
+                                r="3.5"
+                                fill="var(--gold)"
+                            />
                         </g>
                         <circle
                             cx="120"

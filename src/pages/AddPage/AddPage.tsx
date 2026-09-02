@@ -8,7 +8,7 @@ import {
     spineImageUrl,
     updateBook,
 } from "../../api/api";
-import { shrinkImage } from "../../api/shrinkImage";
+import { toAvif } from "../../api/toAvif";
 import Dialog from "../../components/Dialogs/Dialog";
 import RichEditor from "../../components/RichEditor/RichEditor";
 import { navigate } from "../../router";
@@ -106,6 +106,7 @@ function AddPage({
         ratio: number;
     } | null>(null);
     const [hover, setHover] = useState(0);
+    const [converting, setConverting] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -129,27 +130,41 @@ function AddPage({
     async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
-        const packed = await shrinkImage(file, 600);
-        setCover(packed);
-        setCoverPreview((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return URL.createObjectURL(packed);
-        });
+        setConverting(true);
+        try {
+            const packed = await toAvif(file, { maxW: 600, maxH: 900 });
+            setCover(packed);
+            setCoverPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(packed);
+            });
+        } catch {
+            setError("Не удалось обработать изображение — попробуйте другое.");
+        } finally {
+            setConverting(false);
+        }
     }
 
     async function pickSpine(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
-        const packed = await shrinkImage(file, 60);
-        setSpine(packed);
-        setSpinePreview((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return URL.createObjectURL(packed);
-        });
+        setConverting(true);
         try {
-            setSpineMeta(await analyzeSpine(packed));
+            const packed = await toAvif(file, { maxW: 120, maxH: 700 });
+            setSpine(packed);
+            setSpinePreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(packed);
+            });
+            try {
+                setSpineMeta(await analyzeSpine(packed));
+            } catch {
+                setSpineMeta(null);
+            }
         } catch {
-            setSpineMeta(null);
+            setError("Не удалось обработать изображение — попробуйте другое.");
+        } finally {
+            setConverting(false);
         }
     }
 
@@ -218,6 +233,7 @@ function AddPage({
                             }
                             onClick={() => fileRef.current?.click()}
                             aria-label="Загрузить обложку"
+                            disabled={converting}
                         >
                             {!coverPreview && (
                                 <span
@@ -245,6 +261,7 @@ function AddPage({
                                     ? { borderColor: spineMeta.color }
                                     : undefined
                             }
+                            disabled={converting}
                         >
                             {spinePreview ? (
                                 <img
@@ -390,7 +407,7 @@ function AddPage({
                     <button
                         type="submit"
                         className="btn btn-dark"
-                        disabled={saving}
+                        disabled={saving || converting}
                     >
                         {book
                             ? saving

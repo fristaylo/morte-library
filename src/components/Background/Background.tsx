@@ -95,13 +95,7 @@ function BackgroundScene({ night }: { night: boolean }) {
                             <stop offset="1" stopColor={`var(--bg-r${n}b)`} />
                         </linearGradient>
                     ))}
-                    <linearGradient
-                        id="bg-r6"
-                        x1="0"
-                        y1="0"
-                        x2="0.18"
-                        y2="1"
-                    >
+                    <linearGradient id="bg-r6" x1="0" y1="0" x2="0.18" y2="1">
                         <stop offset="0" stopColor="var(--bg-r6a)" />
                         <stop offset="0.5" stopColor="var(--bg-r6b)" />
                         <stop offset="1" stopColor="var(--bg-r6c)" />

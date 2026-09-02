@@ -90,11 +90,26 @@ export function blend(a: Phase, b: Phase, t: number) {
 const cache: (Phase | undefined)[] = [];
 
 const RIDGES: [Rgb, Rgb][] = [
-    [[240, 217, 204], [230, 202, 187]],
-    [[227, 200, 184], [210, 179, 164]],
-    [[182, 172, 158], [156, 146, 130]],
-    [[143, 154, 137], [111, 124, 107]],
-    [[100, 120, 106], [67, 86, 74]],
+    [
+        [240, 217, 204],
+        [230, 202, 187],
+    ],
+    [
+        [227, 200, 184],
+        [210, 179, 164],
+    ],
+    [
+        [182, 172, 158],
+        [156, 146, 130],
+    ],
+    [
+        [143, 154, 137],
+        [111, 124, 107],
+    ],
+    [
+        [100, 120, 106],
+        [67, 86, 74],
+    ],
 ];
 const R6: [Rgb, Rgb, Rgb] = [
     [77, 99, 85],
@@ -139,7 +154,9 @@ export function useDaylight(hour: number) {
         const tone = light.tone;
         const grade = (c: Rgb) =>
             tone(
-                c.map((v, n) => v + (light.ridge[n] - v) * light.ridgeMix) as Rgb,
+                c.map(
+                    (v, n) => v + (light.ridge[n] - v) * light.ridgeMix,
+                ) as Rgb,
             );
         set("--bg-sky-0", light.sky[0]);
         set("--bg-sky-1", light.sky[1]);

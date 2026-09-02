@@ -9,7 +9,7 @@ import {
     useState,
 } from "react";
 import { uploadImage } from "../../api/api";
-import { shrinkImage } from "../../api/shrinkImage";
+import { toAvif } from "../../api/toAvif";
 import { sanitizeHtml } from "../../html";
 import "./RichEditor.scss";
 
@@ -309,7 +309,7 @@ function RichEditor({
         setUploading(true);
         setUploadError(null);
         try {
-            const packed = await shrinkImage(file, 1200);
+            const packed = await toAvif(file, { maxW: 1920, maxH: 1920 });
             const url = await uploadImage(packed);
             editorRef.current?.focus();
             document.execCommand(

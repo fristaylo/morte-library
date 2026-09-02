@@ -18,7 +18,7 @@ const DB_HOST = process.env.DB_HOST ?? "localhost";
 const DB_PORT = 3306;
 const DB_NAME = "morte";
 
-const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"]);
 
 const pool = mysql.createPool({
     host: DB_HOST,

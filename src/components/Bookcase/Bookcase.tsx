@@ -84,7 +84,8 @@ const dropAnimation: DropAnimation = {
             fill: "forwards",
         });
         const t = getComputedStyle(active.node).translate;
-        const [tx = 0, ty = 0] = t === "none" ? [] : t.split(" ").map(parseFloat);
+        const [tx = 0, ty = 0] =
+            t === "none" ? [] : t.split(" ").map(parseFloat);
         const ghost = active.node.getBoundingClientRect();
         return [
             { transform: translate(initial) },
@@ -433,7 +434,9 @@ function Bookcase({
             const dx = prev.x - x;
             const dy = prev.y - y;
             if (dx === 0 && dy === 0) continue;
-            el.getAnimations().find((a) => a.id === FLIP_ID)?.cancel();
+            el.getAnimations()
+                .find((a) => a.id === FLIP_ID)
+                ?.cancel();
             el.animate(
                 [{ translate: `${dx}px ${dy}px` }, { translate: "none" }],
                 { id: FLIP_ID, duration: DROP_MS, easing: DROP_EASE },
@@ -527,7 +530,8 @@ function Bookcase({
 
     const onDragEnd = async (event: DragEndEvent) => {
         const activeSlugStr = String(event.active.id);
-        const final = reorderFor(event.delta, activeSlugStr) ?? itemsRef.current;
+        const final =
+            reorderFor(event.delta, activeSlugStr) ?? itemsRef.current;
         startCenterRef.current = null;
         lastTargetRef.current = null;
         setActiveSlug(null);
@@ -537,7 +541,8 @@ function Bookcase({
         const currentBook = final.find((b) => b.slug === activeSlugStr);
         if (!snapshot || !sourceBook || !currentBook) return;
         const sameOrder =
-            snapshot.map((b) => b.slug).join() === final.map((b) => b.slug).join();
+            snapshot.map((b) => b.slug).join() ===
+            final.map((b) => b.slug).join();
         if (sameOrder && sourceBook.categoryId === currentBook.categoryId) {
             return;
         }
