@@ -116,6 +116,7 @@
     text-transform: uppercase;
     color: var(--mist);
     white-space: nowrap;
+    user-select: none;
 
     --plate-dx: 1px;
     --plate-dy: 1.5px;

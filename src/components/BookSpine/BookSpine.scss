@@ -7,6 +7,7 @@
     border: 0;
     background: transparent;
     cursor: pointer;
+    user-select: none;
     touch-action: manipulation;
     margin-left: var(--gap, 6px);
     transform-style: preserve-3d;
