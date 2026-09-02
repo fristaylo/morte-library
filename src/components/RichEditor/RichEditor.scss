@@ -91,12 +91,6 @@
     min-height: 260px;
     padding: 16px;
     outline: none;
-    overflow-wrap: break-word;
-
-    &.review-rich {
-        max-width: none;
-        margin: 0;
-    }
 
     &:empty::before {
         content: attr(data-placeholder);

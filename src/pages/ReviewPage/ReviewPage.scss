@@ -174,9 +174,10 @@ img.review-cover {
 }
 
 .review-rich {
+    overflow-wrap: anywhere;
+
     p {
         display: flow-root;
-        max-width: 65ch;
         font-size: 1.02rem;
         line-height: 1.6;
         color: var(--ink);
@@ -233,7 +234,6 @@ img.review-cover {
 
     ul,
     ol {
-        max-width: 65ch;
         padding-left: 1.4em;
         color: var(--ink);
         margin-bottom: 0.65em;
@@ -245,7 +245,6 @@ img.review-cover {
     }
 
     blockquote {
-        max-width: 65ch;
         margin: 1.1em 0;
         padding: 0.4em 18px;
         border-left: 3px solid var(--blush-deep);
