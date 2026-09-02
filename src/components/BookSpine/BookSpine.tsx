@@ -1,4 +1,9 @@
-import type { CSSProperties } from "react";
+import type {
+    DraggableAttributes,
+    DraggableSyntheticListeners,
+} from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { type CSSProperties, type Ref, useRef } from "react";
 import type { Book } from "../../api/api";
 import {
     bookLook,
@@ -10,14 +15,24 @@ import {
 import { navigate } from "../../router";
 import "./BookSpine.scss";
 
-export default function BookSpine({
+function Spine({
     book,
     yaw = 0,
     rank = 0,
+    className,
+    onClick,
+    elementRef,
+    attributes,
+    listeners,
 }: {
     book: Book;
     yaw?: number;
     rank?: number;
+    className: string;
+    onClick?: () => void;
+    elementRef?: Ref<HTMLButtonElement>;
+    attributes?: DraggableAttributes;
+    listeners?: DraggableSyntheticListeners;
 }) {
     const width = spineWidth(book);
     const height = spineHeight(book);
@@ -27,10 +42,10 @@ export default function BookSpine({
         width,
         height,
         zIndex: rank,
-		"--tilt": `${6 + height / 60}deg`,
-		"--book-length": `${place.length}px`,
+        "--rest-tilt": `${6 + height / 60}deg`,
+        "--book-length": `${place.length}px`,
         "--z": `${place.z}px`,
-        "--yaw": yaw,
+        "--rest-yaw": yaw,
         "--back": place.back,
         "--page-a": look.pageA,
         "--page-b": look.pageB,
@@ -48,18 +63,17 @@ export default function BookSpine({
 
     return (
         <button
+            ref={elementRef}
             type="button"
-            className="book"
+            className={className}
             style={style}
+            data-slug={book.slug}
             aria-label={`${book.title} — ${book.author}`}
-            onClick={() => {
-                navigate(`/book/${book.slug}`);
-            }}
+            onClick={onClick}
+            {...attributes}
+            {...listeners}
         >
-            <span
-                className="book-face book-spine"
-                style={spineStyle}
-            >
+            <span className="book-face book-spine" style={spineStyle}>
                 {book.hasSpineImage ? (
                     <img
                         className="book-spine-img"
@@ -86,5 +100,66 @@ export default function BookSpine({
                 <span className="book-pages" />
             </span>
         </button>
+    );
+}
+
+export default function BookSpine({
+    book,
+    yaw = 0,
+    rank = 0,
+    sortable = false,
+}: {
+    book: Book;
+    yaw?: number;
+    rank?: number;
+    sortable?: boolean;
+}) {
+    const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+        id: book.slug,
+        disabled: !sortable,
+    });
+    const draggedRef = useRef(false);
+    if (isDragging) draggedRef.current = true;
+
+    const className = `book${sortable ? " book--sortable" : ""}${
+        isDragging ? " book--ghost" : ""
+    }`;
+
+    return (
+        <Spine
+            book={book}
+            yaw={yaw}
+            rank={rank}
+            className={className}
+            elementRef={setNodeRef}
+            attributes={sortable ? attributes : undefined}
+            listeners={sortable ? listeners : undefined}
+            onClick={() => {
+                if (draggedRef.current) {
+                    draggedRef.current = false;
+                    return;
+                }
+                navigate(`/book/${book.slug}`);
+            }}
+        />
+    );
+}
+
+export function BookSpinePreview({
+    book,
+    yaw = 0,
+    rank = 0,
+}: {
+    book: Book;
+    yaw?: number;
+    rank?: number;
+}) {
+    return (
+        <Spine
+            book={book}
+            yaw={yaw}
+            rank={rank}
+            className="book book--overlay"
+        />
     );
 }

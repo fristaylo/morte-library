@@ -7,7 +7,14 @@ import {
     useState,
 } from "react";
 import { createRoot } from "react-dom/client";
-import { type Book, type BookDetail, fetchBook, fetchBooks } from "./api/api";
+import {
+    type Book,
+    type BookDetail,
+    type Category,
+    fetchBook,
+    fetchBooks,
+    fetchCategories,
+} from "./api/api";
 import Background from "./components/Background/Background";
 import Bookcase from "./components/Bookcase/Bookcase";
 import TimeDial from "./components/TimeDial/TimeDial";
@@ -86,6 +93,7 @@ function SiteHeader({
 function App() {
     const path = usePath();
     const [books, setBooks] = useState<Book[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [details, setDetails] = useState<Record<string, BookDetail>>({});
     const [error, setError] = useState(false);
     const [detailError, setDetailError] = useState<string | null>(null);
@@ -123,7 +131,13 @@ function App() {
 
     const reload = useCallback(() => {
         setDetails({});
-        return fetchBooks().then(setBooks, () => setError(true));
+        return Promise.all([fetchBooks(), fetchCategories()]).then(
+            ([nextBooks, nextCategories]) => {
+                setBooks(nextBooks);
+                setCategories(nextCategories);
+            },
+            () => setError(true),
+        );
     }, []);
 
     useEffect(() => {
@@ -194,6 +208,7 @@ function App() {
                 ) : (
                     <AddPage
                         book={editing ? detail : undefined}
+                        categories={categories}
                         onSaved={reload}
                     />
                 )}
@@ -273,7 +288,11 @@ function App() {
                             позже.
                         </p>
                     ) : (
-                        <Bookcase books={books} />
+                        <Bookcase
+                            books={books}
+                            categories={categories}
+                            onChanged={reload}
+                        />
                     )}
                 </section>
             </main>

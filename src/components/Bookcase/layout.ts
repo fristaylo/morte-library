@@ -1,26 +1,59 @@
-import type { Book } from "../../api/api";
+import type { Book, Category } from "../../api/api";
 import { spineHeight, spineWidth } from "../../api/api";
 
 const BOOK_GAP = 7;
-const MIN_SHELVES = 6;
 
-export function packShelves(books: Book[], shelfWidth: number): Book[][] {
-    const shelves: Book[][] = [];
+export interface Row {
+    categoryId: number | null;
+    books: Book[];
+}
+
+function packCategory(books: Book[], shelfWidth: number): Book[][] {
+    const rows: Book[][] = [];
     let row: Book[] = [];
     let used = 0;
     for (const book of books) {
         const w = spineWidth(book);
         if (row.length > 0 && used + BOOK_GAP + w > shelfWidth) {
-            shelves.push(row);
+            rows.push(row);
             row = [];
             used = 0;
         }
         used += (row.length > 0 ? BOOK_GAP : 0) + w;
         row.push(book);
     }
-    if (row.length > 0) shelves.push(row);
-    while (shelves.length < MIN_SHELVES) shelves.push([]);
-    return shelves;
+    if (row.length > 0 || rows.length === 0) rows.push(row);
+    return rows;
+}
+
+export function packRows(
+    categories: Category[],
+    books: Book[],
+    shelfWidth: number,
+    withAddRow: boolean,
+): Row[] {
+    const byCategory = new Map<number, Book[]>();
+    for (const category of categories) byCategory.set(category.id, []);
+    const orphans: Book[] = [];
+    for (const book of books) {
+        const group = byCategory.get(book.categoryId);
+        if (group) group.push(book);
+        else orphans.push(book);
+    }
+    if (categories[0]) byCategory.get(categories[0].id)?.push(...orphans);
+
+    const rows: Row[] = [];
+    for (const category of categories) {
+        const categoryRows = packCategory(
+            byCategory.get(category.id) ?? [],
+            shelfWidth,
+        );
+        categoryRows.forEach((rowBooks) => {
+            rows.push({ categoryId: category.id, books: rowBooks });
+        });
+    }
+    if (withAddRow) rows.push({ categoryId: null, books: [] });
+    return rows;
 }
 
 export function shelfYaws(shelf: Book[], shelfWidth: number): number[] {
@@ -45,11 +78,11 @@ export interface ShelfMetrics {
 }
 
 export function shelfLayout(
-    shelves: Book[][],
+    rows: Row[],
     m: ShelfMetrics,
 ): { heights: number[]; tops: number[]; total: number } {
-    const heights = shelves.map((shelf) => {
-        const maxSpine = shelf.reduce(
+    const heights = rows.map((row) => {
+        const maxSpine = row.books.reduce(
             (max, book) => Math.max(max, spineHeight(book)),
             0,
         );

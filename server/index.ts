@@ -59,6 +59,15 @@ CREATE TABLE IF NOT EXISTS books (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
+const CATEGORIES_SCHEMA = `
+CREATE TABLE IF NOT EXISTS categories (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    position INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
 async function waitForDb(): Promise<void> {
     for (let attempt = 1; attempt <= 30; attempt++) {
         try {
@@ -121,6 +130,8 @@ interface BookRow {
     spineRatio: string | null;
     dateRead: string | null;
     updatedAt: string;
+    categoryId: number | null;
+    position: number;
 }
 
 interface BookDetailRow extends BookRow {
@@ -135,7 +146,8 @@ const BOOK_COLUMNS = `id, slug, title, author, rating, pages,
     (spine_image IS NOT NULL) AS hasSpineImage,
     spine_ratio AS spineRatio,
     date_read AS dateRead,
-    updated_at AS updatedAt`;
+    updated_at AS updatedAt,
+    category_id AS categoryId, position`;
 
 function normalizeBook<T extends BookRow>(r: T) {
     return {
@@ -148,7 +160,7 @@ function normalizeBook<T extends BookRow>(r: T) {
 
 async function listBooks(): Promise<Response> {
     const [rows] = await pool.query(
-        `SELECT ${BOOK_COLUMNS} FROM books ORDER BY id ASC`,
+        `SELECT ${BOOK_COLUMNS} FROM books ORDER BY position ASC, id ASC`,
     );
     return json((rows as BookRow[]).map(normalizeBook));
 }
@@ -261,12 +273,33 @@ async function createBook(req: Request): Promise<Response> {
     const [coverImage, coverMime] = await fileBlob(form.get("cover"));
     const [spineImage, spineMime] = await fileBlob(form.get("spine"));
 
+    let categoryId = formInt(form.get("categoryId"), 1, 4294967295);
+    if (categoryId !== null) {
+        const [catRows] = await pool.query(
+            "SELECT 1 FROM categories WHERE id = ? LIMIT 1",
+            [categoryId],
+        );
+        if ((catRows as unknown[]).length === 0) categoryId = null;
+    }
+    if (categoryId === null) {
+        const [catRows] = await pool.query(
+            "SELECT id FROM categories ORDER BY position ASC, id ASC LIMIT 1",
+        );
+        categoryId = (catRows as { id: number }[])[0]?.id ?? null;
+    }
+    const [posRows] = await pool.query(
+        "SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM books WHERE category_id = ?",
+        [categoryId],
+    );
+    const position = (posRows as { pos: number }[])[0].pos;
+
     const slug = await uniqueSlug(title);
     await pool.query(
         `INSERT INTO books (slug, title, author, synopsis, review, rating,
             pages, spine_color, cover_image, cover_mime,
-            spine_image, spine_mime, spine_ratio, date_read)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            spine_image, spine_mime, spine_ratio, date_read,
+            category_id, position)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             slug,
             title,
@@ -282,6 +315,8 @@ async function createBook(req: Request): Promise<Response> {
             spineMime,
             formFloat(form.get("spineRatio"), 0.5, 20),
             formStr(form.get("dateRead")),
+            categoryId,
+            position,
         ],
     );
     return json({ slug }, 201);
@@ -337,6 +372,26 @@ async function updateBook(req: Request, slug: string): Promise<Response> {
             formFloat(form.get("spineRatio"), 0.5, 20),
         );
     }
+
+    const categoryId = formInt(form.get("categoryId"), 1, 4294967295);
+    if (categoryId !== null) {
+        const [curRows] = await pool.query(
+            "SELECT category_id AS categoryId FROM books WHERE slug = ?",
+            [slug],
+        );
+        const current = (curRows as { categoryId: number | null }[])[0]
+            ?.categoryId;
+        if (current !== categoryId) {
+            const [posRows] = await pool.query(
+                "SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM books WHERE category_id = ?",
+                [categoryId],
+            );
+            const position = (posRows as { pos: number }[])[0].pos;
+            sets.push("category_id = ?", "position = ?");
+            params.push(categoryId, position);
+        }
+    }
+
     params.push(slug);
 
     const [res] = await pool.query(
@@ -360,11 +415,181 @@ async function deleteBook(req: Request, slug: string): Promise<Response> {
     return json({ deleted: slug });
 }
 
+function normalizeCategoryName(v: unknown): string | null {
+    const s = typeof v === "string" ? v.trim().slice(0, 191) : "";
+    return s || null;
+}
+
+async function listCategories(): Promise<Response> {
+    const [rows] = await pool.query(
+        "SELECT id, name, position FROM categories ORDER BY position ASC, id ASC",
+    );
+    return json(rows);
+}
+
+async function createCategory(req: Request): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const body = (await req.json().catch(() => null)) as {
+        name?: unknown;
+    } | null;
+    const name = normalizeCategoryName(body?.name);
+    if (!name) {
+        return json({ error: "Нужно название" }, 400);
+    }
+    const [posRows] = await pool.query(
+        "SELECT COALESCE(MAX(position), -1) + 1 AS pos FROM categories",
+    );
+    const position = (posRows as { pos: number }[])[0].pos;
+    const [res] = await pool.query(
+        "INSERT INTO categories (name, position) VALUES (?, ?)",
+        [name, position],
+    );
+    const id = (res as { insertId: number }).insertId;
+    return json({ id, name, position }, 201);
+}
+
+async function updateCategory(req: Request, id: number): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const body = (await req.json().catch(() => null)) as {
+        name?: unknown;
+    } | null;
+    const name = normalizeCategoryName(body?.name);
+    if (!name) {
+        return json({ error: "Нужно название" }, 400);
+    }
+    const [res] = await pool.query(
+        "UPDATE categories SET name = ? WHERE id = ?",
+        [name, id],
+    );
+    if ((res as { affectedRows: number }).affectedRows === 0) {
+        return json({ error: "Not found" }, 404);
+    }
+    return json({ id, name });
+}
+
+async function deleteCategory(req: Request, id: number): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const [countRows] = await pool.query(
+        "SELECT COUNT(*) AS c FROM books WHERE category_id = ?",
+        [id],
+    );
+    if ((countRows as { c: number }[])[0].c > 0) {
+        return json({ error: "В категории ещё есть книги" }, 409);
+    }
+    const [res] = await pool.query("DELETE FROM categories WHERE id = ?", [
+        id,
+    ]);
+    if ((res as { affectedRows: number }).affectedRows === 0) {
+        return json({ error: "Not found" }, 404);
+    }
+    return json({ deleted: id });
+}
+
+interface OrderGroup {
+    categoryId: number;
+    slugs: string[];
+}
+
+async function reorderBooks(req: Request): Promise<Response> {
+    if (!isAuthorized(req, PASSWORD)) {
+        return json({ error: "Unauthorized" }, 401);
+    }
+    const body = (await req.json().catch(() => null)) as {
+        groups?: unknown;
+    } | null;
+    const groups = body?.groups;
+    if (!Array.isArray(groups)) {
+        return json({ error: "Bad request" }, 400);
+    }
+    for (const g of groups) {
+        const group = g as { categoryId?: unknown; slugs?: unknown };
+        if (
+            typeof group !== "object" || group === null ||
+            !Number.isFinite(group.categoryId) ||
+            !Array.isArray(group.slugs) ||
+            !group.slugs.every((s) => typeof s === "string")
+        ) {
+            return json({ error: "Bad request" }, 400);
+        }
+    }
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        for (const g of groups as OrderGroup[]) {
+            for (let i = 0; i < g.slugs.length; i++) {
+                await conn.query(
+                    "UPDATE books SET category_id = ?, position = ? WHERE slug = ?",
+                    [g.categoryId, i, g.slugs[i]],
+                );
+            }
+        }
+        await conn.commit();
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+    return json({ ok: true });
+}
+
+async function seedCategories(): Promise<void> {
+    const [countRows] = await pool.query(
+        "SELECT COUNT(*) AS c FROM categories",
+    );
+    if ((countRows as { c: number }[])[0].c > 0) return;
+    const [insertRes] = await pool.query(
+        "INSERT INTO categories (name, position) VALUES ('Без категории', 0)",
+    );
+    const categoryId = (insertRes as { insertId: number }).insertId;
+    const [bookRows] = await pool.query(
+        "SELECT id FROM books ORDER BY id ASC",
+    );
+    const books = bookRows as { id: number }[];
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        for (let i = 0; i < books.length; i++) {
+            await conn.query(
+                "UPDATE books SET category_id = ?, position = ? WHERE id = ?",
+                [categoryId, i, books[i].id],
+            );
+        }
+        await conn.commit();
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+}
+
 await waitForDb();
 await pool.query(SCHEMA);
+await pool.query(CATEGORIES_SCHEMA);
 await pool
     .query("ALTER TABLE books ADD COLUMN spine_ratio DECIMAL(5, 3) NULL")
     .catch(() => {});
+await pool
+    .query("ALTER TABLE books ADD COLUMN category_id INT UNSIGNED NULL")
+    .catch(() => {});
+await pool
+    .query(
+        "ALTER TABLE books ADD COLUMN position INT UNSIGNED NOT NULL DEFAULT 0",
+    )
+    .catch(() => {});
+await pool
+    .query(
+        "ALTER TABLE books ADD KEY idx_books_category (category_id, position)",
+    )
+    .catch(() => {});
+await seedCategories();
 
 Bun.serve({
     port: PORT,
@@ -382,6 +607,22 @@ Bun.serve({
                     return await createBook(req);
                 }
                 return await listBooks();
+            }
+            if (pathname === "/api/books/order" && req.method === "PUT") {
+                return await reorderBooks(req);
+            }
+            if (pathname === "/api/categories") {
+                if (req.method === "POST") {
+                    return await createCategory(req);
+                }
+                return await listCategories();
+            }
+            const cat = pathname.match(/^\/api\/categories\/(\d+)$/);
+            if (cat && req.method === "PUT") {
+                return await updateCategory(req, Number(cat[1]));
+            }
+            if (cat && req.method === "DELETE") {
+                return await deleteCategory(req, Number(cat[1]));
             }
             const one = pathname.match(/^\/api\/books\/([^/]+)$/);
             if (one && req.method === "PUT") {

@@ -92,6 +92,112 @@
     box-shadow: inset 18px 0 22px -12px rgba(40, 58, 82, 0.55);
 }
 
+.bookcase-category {
+    position: static;
+}
+
+.bookcase-body--dragging {
+    user-select: none;
+}
+
+.shelf-plate {
+    position: absolute;
+    left: 2px;
+    bottom: 0;
+    z-index: 100;
+    padding: 3px 9px;
+    border: 0;
+    border-radius: 2px;
+    background: var(--plate-face);
+    box-shadow: 0 8px 12px -7px rgba(20, 32, 50, 0.65);
+    font-family: var(--font-display);
+    font-size: 0.92rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mist);
+    white-space: nowrap;
+
+    --plate-dx: 1px;
+    --plate-dy: 1.5px;
+    --plate-face: #54657a;
+    --plate-top: #8698ab;
+    --plate-side: #333e4a;
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+    }
+
+    &::before {
+        bottom: 100%;
+        left: 0;
+        right: 0;
+        height: var(--plate-dy);
+        transform-origin: 0 100%;
+        transform: skewX(calc(-1 * atan2(var(--plate-dx), var(--plate-dy))));
+        background: var(--plate-top);
+    }
+
+    &::after {
+        top: 0;
+        left: 100%;
+        width: var(--plate-dx);
+        height: 100%;
+        transform-origin: 0 0;
+        transform: skewY(calc(-1 * atan2(var(--plate-dy), var(--plate-dx))));
+        background: var(--plate-side);
+    }
+
+    &:is(button) {
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        &:hover {
+            --plate-face: #5f7186;
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+        }
+    }
+}
+
+.bookcase-shelf--add .bookcase-books {
+    padding-bottom: 150px;
+}
+
+.shelf-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border: 2px dashed color-mix(in srgb, var(--case-edge) 75%, transparent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--case-1) 50%, transparent);
+    cursor: pointer;
+    font-size: 1.8rem;
+    line-height: 1;
+    color: rgba(70, 95, 125, 0.45);
+    transition:
+        color 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease;
+
+    &:hover {
+        color: rgba(70, 95, 125, 0.8);
+        background: color-mix(in srgb, var(--case-1) 85%, transparent);
+        border-color: var(--case-edge);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+    }
+}
+
 .bookcase-books {
     position: relative;
     z-index: 1;

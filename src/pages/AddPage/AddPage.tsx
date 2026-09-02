@@ -1,6 +1,7 @@
-import { type FormEvent, memo, useRef, useState } from "react";
+import { type FormEvent, memo, useEffect, useRef, useState } from "react";
 import {
     type BookDetail,
+    type Category,
     coverUrl,
     createBook,
     deleteBook,
@@ -22,6 +23,7 @@ const EMPTY = {
     dateRead: "",
     synopsis: "",
     review: "",
+    categoryId: "",
 };
 
 async function shrinkImage(file: File, maxWidth: number): Promise<File> {
@@ -102,9 +104,11 @@ function analyzeSpine(file: File): Promise<{ color: string; ratio: number }> {
 
 function AddPage({
     book,
+    categories,
     onSaved,
 }: {
     book?: BookDetail;
+    categories: Category[];
     onSaved: () => Promise<void>;
 }) {
     const [fields, setFields] = useState(() =>
@@ -117,6 +121,7 @@ function AddPage({
                   dateRead: book.dateRead ?? "",
                   synopsis: book.synopsis ?? "",
                   review: book.review ?? "",
+                  categoryId: String(book.categoryId),
               }
             : EMPTY,
     );
@@ -145,6 +150,13 @@ function AddPage({
         setFields((f) => ({ ...f, [key]: value }));
 
     const rating = Number(fields.rating) || 0;
+
+    useEffect(() => {
+        if (categories.length === 0) return;
+        setFields((f) =>
+            f.categoryId ? f : { ...f, categoryId: String(categories[0].id) },
+        );
+    }, [categories]);
 
     async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -350,6 +362,23 @@ function AddPage({
                                     }
                                 />
                             </label>
+                            {categories.length > 0 && (
+                                <label className="review-chip add-chip">
+                                    <select
+                                        className="add-select"
+                                        value={fields.categoryId}
+                                        onChange={(e) =>
+                                            set("categoryId")(e.target.value)
+                                        }
+                                    >
+                                        {categories.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            )}
                         </div>
                     </div>
                 </div>

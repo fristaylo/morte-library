@@ -14,11 +14,24 @@ export interface Book {
     spineRatio: number | null;
     dateRead: string | null;
     updatedAt: string;
+    categoryId: number;
+    position: number;
 }
 
 export interface BookDetail extends Book {
     synopsis: string | null;
     review: string | null;
+}
+
+export interface Category {
+    id: number;
+    name: string;
+    position: number;
+}
+
+export interface OrderGroup {
+    categoryId: number;
+    slugs: string[];
 }
 
 export async function fetchBooks(): Promise<Book[]> {
@@ -54,6 +67,56 @@ export async function deleteBook(slug: string): Promise<void> {
     if (!res.ok) throw new Error(`API: ${res.status}`);
 }
 
+export async function fetchCategories(): Promise<Category[]> {
+    const res = await fetch("/api/categories");
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+    return res.json();
+}
+
+export async function createCategory(name: string): Promise<Category> {
+    const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Не получилось создать категорию.");
+    }
+    return res.json();
+}
+
+export async function renameCategory(id: number, name: string): Promise<void> {
+    const res = await fetch(`/api/categories/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(
+            data?.error ?? "Не получилось переименовать категорию.",
+        );
+    }
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+    const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Не получилось удалить категорию.");
+    }
+}
+
+export async function saveBookOrder(groups: OrderGroup[]): Promise<void> {
+    const res = await fetch("/api/books/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groups }),
+    });
+    if (!res.ok) throw new Error(`API: ${res.status}`);
+}
+
 export async function fetchMe(): Promise<boolean> {
     const res = await fetch("/api/me");
     if (!res.ok) return false;
@@ -83,7 +146,7 @@ export function spineImageUrl(book: Book): string {
 }
 
 const MIN_HEIGHT = 200;
-const MAX_HEIGHT = 350;	
+const MAX_HEIGHT = 350;
 const MIN_WIDTH = 22;
 const MAX_WIDTH = 60;
 const DEFAULT_RATIO = 7;
@@ -113,12 +176,12 @@ export function spineBox(book: Book): SpineBox {
     }
 
     height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height));
-	width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+    width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
 
-	return {
-		width: Math.round(width),
-		height: Math.round(height),
-	};
+    return {
+        width: Math.round(width),
+        height: Math.round(height),
+    };
 }
 
 export function spineWidth(book: Book): number {
