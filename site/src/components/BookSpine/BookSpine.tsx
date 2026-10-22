@@ -4,15 +4,10 @@ import {
     useDraggable,
 } from "@dnd-kit/core";
 import { type CSSProperties, memo, type Ref, useRef } from "react";
-import type { Book } from "../../api/api";
-import {
-    bookLook,
-    bookPlace,
-    spineHeight,
-    spineImageUrl,
-    spineWidth,
-} from "../../api/api";
-import { navigate } from "../../router";
+import type { Book } from "../../api";
+import { spineImageUrl } from "../../api";
+import { navigate } from "../../lib/router";
+import { bookLook, bookPlace, spineHeight, spineWidth } from "./geometry";
 import "./BookSpine.scss";
 
 function Spine({

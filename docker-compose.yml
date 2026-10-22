@@ -27,7 +27,7 @@ services:
         image: ${API_IMAGE:-morte-library-api}
         build:
             context: .
-            target: api
+            dockerfile: api/Dockerfile
         restart: always
         env_file: .env
         ports:
@@ -36,9 +36,11 @@ services:
             db:
                 condition: service_healthy
 
-    app:
-        image: ${IMAGE:-morte-library}
-        build: .
+    site:
+        image: ${SITE_IMAGE:-morte-library-site}
+        build:
+            context: .
+            dockerfile: site/Dockerfile
         restart: always
         ports:
             - "127.0.0.1:8081:80"

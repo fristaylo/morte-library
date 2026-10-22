@@ -1,5 +1,5 @@
-import type { Book, Category } from "../../api/api";
-import { spineHeight, spineWidth } from "../../api/api";
+import type { Book, Category } from "../../api";
+import { spineHeight, spineWidth } from "../BookSpine/geometry";
 
 const BOOK_GAP = 7;
 

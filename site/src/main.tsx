@@ -14,14 +14,14 @@ import {
     fetchBook,
     fetchBooks,
     fetchCategories,
-} from "./api/api";
+} from "./api";
 import Background from "./components/Background/Background";
 import Bookcase from "./components/Bookcase/Bookcase";
 import TimeDial from "./components/TimeDial/TimeDial";
 import "./main.scss";
+import { linkProps, navigate, savedScroll, usePath } from "./lib/router";
 import AddPage from "./pages/AddPage/AddPage";
 import ReviewPage from "./pages/ReviewPage/ReviewPage";
-import { linkProps, navigate, savedScroll, usePath } from "./router";
 
 function nowHour() {
     const d = new Date();

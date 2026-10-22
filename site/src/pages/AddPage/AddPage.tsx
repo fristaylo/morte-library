@@ -7,11 +7,11 @@ import {
     deleteBook,
     spineImageUrl,
     updateBook,
-} from "../../api/api";
-import { toAvif } from "../../api/toAvif";
+} from "../../api";
 import Dialog from "../../components/Dialogs/Dialog";
 import RichEditor from "../../components/RichEditor/RichEditor";
-import { navigate } from "../../router";
+import { navigate } from "../../lib/router";
+import { toAvif } from "../../lib/toAvif";
 import "../ReviewPage/ReviewPage.scss";
 import "./AddPage.scss";
 

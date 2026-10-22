@@ -27,9 +27,9 @@ import {
     type OrderGroup,
     renameCategory,
     saveBookOrder,
-} from "../../api/api";
+} from "../../api";
 import { useAuth } from "../../hooks/useAuth";
-import { navigate } from "../../router";
+import { navigate } from "../../lib/router";
 import BookSpine, { BookSpinePreview } from "../BookSpine/BookSpine";
 import Dialog from "../Dialogs/Dialog";
 import LoginDialog from "../Dialogs/LoginDialog/LoginDialog";

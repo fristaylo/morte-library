@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { fetchMe, login } from "../api/api";
+import { fetchMe, login } from "../api";
 
 let authorized: boolean | null = null;
 let checking = false;

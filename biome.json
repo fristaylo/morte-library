@@ -18,6 +18,13 @@
         }
     },
     "files": {
-        "includes": ["src/**", "*.ts", "*.json"]
+        "includes": [
+            "site/src/**",
+            "site/*.ts",
+            "site/*.json",
+            "api/drizzle.config.ts",
+            "api/tsconfig.json",
+            "*.json"
+        ]
     }
 }

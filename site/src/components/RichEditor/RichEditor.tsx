@@ -8,9 +8,9 @@ import {
     useRef,
     useState,
 } from "react";
-import { uploadImage } from "../../api/api";
-import { toAvif } from "../../api/toAvif";
-import { sanitizeHtml } from "../../html";
+import { uploadImage } from "../../api";
+import { sanitizeHtml } from "../../lib/sanitizeHtml";
+import { toAvif } from "../../lib/toAvif";
 import "./RichEditor.scss";
 
 type ActiveState = Record<string, boolean>;

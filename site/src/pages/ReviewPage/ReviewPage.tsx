@@ -1,10 +1,10 @@
 import { memo, useState } from "react";
-import type { Book, BookDetail } from "../../api/api";
-import { coverUrl, formatDateRead } from "../../api/api";
+import type { Book, BookDetail } from "../../api";
+import { coverUrl } from "../../api";
 import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../hooks/useAuth";
-import { sanitizeHtml } from "../../html";
-import { linkProps, navigate } from "../../router";
+import { linkProps, navigate } from "../../lib/router";
+import { sanitizeHtml } from "../../lib/sanitizeHtml";
 import "./ReviewPage.scss";
 
 function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
@@ -134,3 +134,13 @@ function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
 }
 
 export default memo(ReviewPage);
+
+function formatDateRead(book: Book): string | null {
+    if (!book.dateRead) return null;
+    const d = new Date(book.dateRead);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Intl.DateTimeFormat("ru", {
+        month: "long",
+        year: "numeric",
+    }).format(d);
+}
