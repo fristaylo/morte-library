@@ -26,6 +26,7 @@ export type Phase = {
     hazeOpacity: number;
     ridge: Rgb;
     ridgeMix: number;
+    light: Rgb;
     vars: Record<ThemeVar, Rgb>;
 };
 
@@ -63,21 +64,23 @@ export function blend(a: Phase, b: Phase, t: number) {
     const tone = (c: Rgb) => {
         const [r, g, bl] = c.map((v) => Math.min(255, v * bright));
         const lum = 0.213 * r + 0.715 * g + 0.072 * bl;
-        return str(
-            [r, g, bl].map((v, n) =>
+        return [r, g, bl].map((v, n) =>
+            Math.round(
                 Math.min(255, Math.max(0, (lum + sat * (v - lum)) * wash[n])),
-            ) as Rgb,
-        );
+            ),
+        ) as Rgb;
     };
-    const lit = (x: Rgb, y: Rgb) => tone(mixRgb(x, y));
+    const ridge = mixRgb(a.ridge, b.ridge);
+    const ridgeMix = mix(a.ridgeMix, b.ridgeMix, t);
     return {
         tone,
+        grade: (c: Rgb) =>
+            tone(c.map((v, n) => v + (ridge[n] - v) * ridgeMix) as Rgb),
         stars: mix(a.stars, b.stars, t),
-        sky: a.sky.map((s, n) => lit(s, b.sky[n])),
-        haze: lit(a.haze, b.haze),
+        sky: a.sky.map((s, n) => tone(mixRgb(s, b.sky[n]))),
+        haze: tone(mixRgb(a.haze, b.haze)),
         hazeOpacity: mix(a.hazeOpacity, b.hazeOpacity, t),
-        ridge: mixRgb(a.ridge, b.ridge),
-        ridgeMix: mix(a.ridgeMix, b.ridgeMix, t),
+        light: mixRgb(a.light, b.light),
         vars: Object.fromEntries(
             (Object.keys(a.vars) as ThemeVar[]).map((k) => [
                 k,
@@ -89,7 +92,7 @@ export function blend(a: Phase, b: Phase, t: number) {
 
 const cache: (Phase | undefined)[] = [];
 
-const RIDGES: [Rgb, Rgb][] = [
+export const RIDGES: [Rgb, Rgb][] = [
     [
         [240, 217, 204],
         [230, 202, 187],
@@ -111,15 +114,15 @@ const RIDGES: [Rgb, Rgb][] = [
         [67, 86, 74],
     ],
 ];
-const R6: [Rgb, Rgb, Rgb] = [
+export const R6: [Rgb, Rgb, Rgb] = [
     [77, 99, 85],
     [53, 73, 61],
     [32, 44, 36],
 ];
-const MEADOW: Rgb = [58, 75, 64];
-const GLOW: Rgb = [246, 216, 174];
-const DARK: Rgb = [16, 26, 20];
-const SHADE: Rgb = [15, 25, 19];
+export const MEADOW: Rgb = [58, 75, 64];
+export const GLOW: Rgb = [246, 216, 174];
+export const DARK: Rgb = [16, 26, 20];
+export const SHADE: Rgb = [15, 25, 19];
 
 export function useDaylight(hour: number) {
     const [, bump] = useReducer((n: number) => n + 1, 0);
@@ -144,41 +147,13 @@ export function useDaylight(hour: number) {
     useEffect(() => {
         if (!light) return;
         const style = document.documentElement.style;
-        const set = (k: string, v: string) => {
+        for (const [k, v] of Object.entries(light.vars)) {
             if (applied.current[k] !== v) {
                 applied.current[k] = v;
                 style.setProperty(k, v);
             }
-        };
-        for (const [k, v] of Object.entries(light.vars)) set(k, v);
-        const tone = light.tone;
-        const grade = (c: Rgb) =>
-            tone(
-                c.map(
-                    (v, n) => v + (light.ridge[n] - v) * light.ridgeMix,
-                ) as Rgb,
-            );
-        set("--bg-sky-0", light.sky[0]);
-        set("--bg-sky-1", light.sky[1]);
-        set("--bg-sky-2", light.sky[2]);
-        RIDGES.forEach(([top, bottom], n) => {
-            set(`--bg-r${n + 1}a`, grade(top));
-            set(`--bg-r${n + 1}b`, grade(bottom));
-        });
-        set("--bg-r6a", grade(R6[0]));
-        set("--bg-r6b", grade(R6[1]));
-        set("--bg-r6c", grade(R6[2]));
-        set("--bg-haze", light.haze);
-        set("--bg-haze-o1", `${0.22 * light.hazeOpacity}`);
-        set("--bg-haze-o2", `${0.4 * light.hazeOpacity}`);
-        set("--bg-haze-o3", `${0.5 * light.hazeOpacity}`);
-        set("--bg-haze-o4", `${0.2 * light.hazeOpacity}`);
-        set("--bg-shade", tone(SHADE));
-        set("--bg-meadow", tone(MEADOW));
-        set("--bg-glow", tone(GLOW));
-        set("--bg-dark", tone(DARK));
-        set("--bg-stars", `${light.stars}`);
+        }
     });
 
-    return light !== null && light.stars > 0;
+    return light;
 }
