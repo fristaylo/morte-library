@@ -49,9 +49,30 @@ html {
     background: var(--sky);
 }
 
+.owl-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
 @media (prefers-reduced-motion: no-preference) {
     html {
         scroll-behavior: smooth;
+    }
+
+    .owl-eye {
+        animation: owl-blink 4.5s ease-in-out 1.6s infinite;
+    }
+}
+
+@keyframes owl-blink {
+    0%,
+    93%,
+    100% {
+        transform: none;
+    }
+
+    96% {
+        transform: scaleY(0.1);
     }
 }
 

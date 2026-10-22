@@ -82,6 +82,11 @@ button.topbar-chip:hover {
     .topbar-brand {
         gap: 7px;
         font-size: 1.18rem;
+
+        svg {
+            width: 34px;
+            height: 34px;
+        }
     }
 
     .topbar-chip {

@@ -50,13 +50,47 @@ export type IconProps = {
     size?: number;
 };
 
-export function LogoIcon({ size }: IconProps) {
+export function LogoIcon({
+    size,
+    className,
+}: IconProps & { className?: string }) {
     return (
-        <Svg size={size} viewBoxSize={[26, 26]}>
-            <circle cx="13" cy="13" r="13" fill="var(--mist-2)" />
-            <circle cx="19.5" cy="6.5" r="2.2" fill="#fff" />
-            <path d="M3 19.5 L9.5 8.5 L16 19.5 Z" fill="#fff" />
-            <path d="M11 19.5 L16.5 11 L23 19.5 Z" fill="var(--ridge-near)" />
+        <Svg size={size} viewBoxSize={[64, 64]} className={className}>
+            <path
+                className="owl-page"
+                fill="var(--accent)"
+                d="M31 24 Q20 16 8 9 V46 Q20 46 31 54 Z"
+            />
+            <path
+                className="owl-page"
+                fill="color-mix(in srgb, var(--accent) 58%, var(--ink))"
+                d="M33 24 Q44 16 56 9 V46 Q44 46 33 54 Z"
+            />
+            <path
+                stroke="var(--surface)"
+                strokeWidth="1.2"
+                opacity=".4"
+                fill="none"
+                strokeLinecap="round"
+                d="M11 42 Q21 42 29 48 M53 42 Q43 42 35 48"
+            />
+            <g className="owl-eye-pop">
+                <g className="owl-eye">
+                    <circle cx="20" cy="30" r="7" fill="var(--surface)" />
+                    <circle cx="21.4" cy="30.6" r="3.3" fill="var(--ink)" />
+                </g>
+            </g>
+            <g className="owl-eye-pop">
+                <g className="owl-eye">
+                    <circle cx="44" cy="30" r="7" fill="var(--surface)" />
+                    <circle cx="42.6" cy="30.6" r="3.3" fill="var(--ink)" />
+                </g>
+            </g>
+            <path
+                className="owl-beak"
+                fill="var(--gold)"
+                d="M32 38.5 L28.6 33 H35.4 Z"
+            />
         </Svg>
     );
 }

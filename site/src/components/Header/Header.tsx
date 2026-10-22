@@ -13,7 +13,7 @@ export default function Header() {
     return (
         <header className="topbar">
             <Link className="topbar-brand" to="/">
-                <LogoIcon size={30} />
+                <LogoIcon size={40} />
                 <span>Библиотека Морте</span>
             </Link>
             <div className="topbar-actions">
