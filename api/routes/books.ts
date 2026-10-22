@@ -310,7 +310,7 @@ async function uniqueSlug(title: string): Promise<string> {
             "SELECT 1 FROM books WHERE slug = ? LIMIT 1",
             [slug],
         );
-        if ((rows as unknown[]).length === 0) return slug;
+        if ((rows as unknown[]).length === 0 && slug !== "add") return slug;
         slug = `${base}-${i}`;
     }
 }

@@ -1,4 +1,5 @@
-import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, useRef } from "react";
+import { useHour } from "../../hooks/useHour";
 import Dialog from "../Dialogs/Dialog";
 import "./TimeDial.scss";
 
@@ -7,22 +8,14 @@ function fmt(hour: number) {
     return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
-export default function TimeDial({
-    hour,
-    isOverride,
-    onChange,
-    onOpenChange,
-}: {
-    hour: number;
-    isOverride: boolean;
-    onChange: (hour: number | null) => void;
-    onOpenChange?: (open: boolean) => void;
-}) {
-    const [open, setOpen] = useState(false);
-    const show = (v: boolean) => {
-        setOpen(v);
-        onOpenChange?.(v);
-    };
+export default function TimeDial() {
+    const {
+        hour,
+        isOverride,
+        setOverride: onChange,
+        dialOpen: open,
+        setDialOpen: show,
+    } = useHour();
     const faceRef = useRef<SVGSVGElement>(null);
     const dragging = useRef(false);
     const rafRef = useRef(0);

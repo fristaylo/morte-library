@@ -4,9 +4,9 @@ import {
     useDraggable,
 } from "@dnd-kit/core";
 import { type CSSProperties, memo, type Ref, useRef } from "react";
+import { useNavigate } from "react-router";
 import type { Book } from "../../api";
 import { spineImageUrl } from "../../api";
-import { navigate } from "../../lib/router";
 import { bookLook, bookPlace, spineHeight, spineWidth } from "./geometry";
 import "./BookSpine.scss";
 
@@ -113,6 +113,7 @@ function BookSpine({
         id: book.slug,
         disabled: !sortable,
     });
+    const navigate = useNavigate();
     const draggedRef = useRef(false);
     if (isDragging) draggedRef.current = true;
 

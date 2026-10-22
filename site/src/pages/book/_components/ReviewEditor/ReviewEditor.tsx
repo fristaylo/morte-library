@@ -1,4 +1,5 @@
 import { type FormEvent, memo, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import {
     type BookDetail,
     type Category,
@@ -7,13 +8,12 @@ import {
     deleteBook,
     spineImageUrl,
     updateBook,
-} from "../../api";
-import Dialog from "../../components/Dialogs/Dialog";
-import RichEditor from "../../components/RichEditor/RichEditor";
-import { navigate } from "../../lib/router";
-import { toAvif } from "../../lib/toAvif";
-import "../review/index.scss";
-import "./index.scss";
+} from "../../../../api";
+import Dialog from "../../../../components/Dialogs/Dialog";
+import RichEditor from "../../../../components/RichEditor/RichEditor";
+import { toAvif } from "../../../../lib/toAvif";
+import "../../[slug]/index.scss";
+import "./ReviewEditor.scss";
 
 const STARS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -70,7 +70,7 @@ function analyzeSpine(file: File): Promise<{ color: string; ratio: number }> {
     });
 }
 
-function AddPage({
+function ReviewEditor({
     book,
     categories,
     onSaved,
@@ -112,6 +112,7 @@ function AddPage({
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
+    const navigate = useNavigate();
     const fileRef = useRef<HTMLInputElement>(null);
     const spineRef = useRef<HTMLInputElement>(null);
 
@@ -455,4 +456,4 @@ function AddPage({
     );
 }
 
-export default memo(AddPage);
+export default memo(ReviewEditor);

@@ -1,3 +1,9 @@
+export class ApiError extends Error {
+    constructor(readonly status: number) {
+        super(`API: ${status}`);
+    }
+}
+
 export interface Book {
     id: number;
     slug: string;
@@ -36,19 +42,19 @@ export interface OrderGroup {
 
 export async function fetchBooks(): Promise<Book[]> {
     const res = await fetch("/api/books");
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
     return res.json();
 }
 
 export async function fetchBook(slug: string): Promise<BookDetail> {
     const res = await fetch(`/api/books/${encodeURIComponent(slug)}`);
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
     return res.json();
 }
 
 export async function createBook(data: FormData): Promise<{ slug: string }> {
     const res = await fetch("/api/books", { method: "POST", body: data });
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
     return res.json();
 }
 
@@ -57,27 +63,27 @@ export async function updateBook(slug: string, data: FormData): Promise<void> {
         method: "PUT",
         body: data,
     });
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
 }
 
 export async function deleteBook(slug: string): Promise<void> {
     const res = await fetch(`/api/books/${encodeURIComponent(slug)}`, {
         method: "DELETE",
     });
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
 }
 
 export async function uploadImage(file: File): Promise<string> {
     const data = new FormData();
     data.set("image", file);
     const res = await fetch("/api/images", { method: "POST", body: data });
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
     return (await res.json()).url as string;
 }
 
 export async function fetchCategories(): Promise<Category[]> {
     const res = await fetch("/api/categories");
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
     return res.json();
 }
 
@@ -122,7 +128,7 @@ export async function saveBookOrder(groups: OrderGroup[]): Promise<void> {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ groups }),
     });
-    if (!res.ok) throw new Error(`API: ${res.status}`);
+    if (!res.ok) throw new ApiError(res.status);
 }
 
 export async function fetchMe(): Promise<boolean> {

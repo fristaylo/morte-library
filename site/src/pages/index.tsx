@@ -1,20 +1,13 @@
-import type { Book, Category } from "../api";
+import { useRevalidator } from "react-router";
 import Bookcase from "../components/Bookcase/Bookcase";
+import { useLibrary, useRandomBook } from "../hooks/useLibrary";
 import "./index.scss";
 
-export default function HomePage({
-    books,
-    categories,
-    error,
-    onRandom,
-    onChanged,
-}: {
-    books: Book[];
-    categories: Category[];
-    error: boolean;
-    onRandom: () => void;
-    onChanged: () => Promise<void> | void;
-}) {
+export default function HomePage() {
+    const { books, categories } = useLibrary();
+    const onRandom = useRandomBook();
+    const { revalidate } = useRevalidator();
+
     return (
         <main>
             <section className="hero">
@@ -35,7 +28,7 @@ export default function HomePage({
                     <button
                         type="button"
                         className="btn btn-ghost"
-                        disabled={books.length === 0}
+                        disabled={!onRandom}
                         onClick={onRandom}
                     >
                         Случайная книга
@@ -47,17 +40,11 @@ export default function HomePage({
                 id="shelf"
                 aria-label="Полки с книгами"
             >
-                {error ? (
-                    <p className="load-error">
-                        Не получилось достать книги с полки — загляните позже.
-                    </p>
-                ) : (
-                    <Bookcase
-                        books={books}
-                        categories={categories}
-                        onChanged={onChanged}
-                    />
-                )}
+                <Bookcase
+                    books={books}
+                    categories={categories}
+                    onChanged={revalidate}
+                />
             </section>
         </main>
     );

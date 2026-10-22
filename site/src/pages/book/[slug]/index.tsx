@@ -1,13 +1,16 @@
-import { memo, useState } from "react";
-import type { Book, BookDetail } from "../../api";
-import { coverUrl } from "../../api";
-import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
-import { useAuth } from "../../hooks/useAuth";
-import { linkProps, navigate } from "../../lib/router";
-import { sanitizeHtml } from "../../lib/sanitizeHtml";
+import { useState } from "react";
+import { Link, useLoaderData, useNavigate } from "react-router";
+import type { Book } from "../../../api";
+import { coverUrl } from "../../../api";
+import LoginDialog from "../../../components/Dialogs/LoginDialog/LoginDialog";
+import { useAuth } from "../../../hooks/useAuth";
+import { sanitizeHtml } from "../../../lib/sanitizeHtml";
+import type loader from "./loader";
 import "./index.scss";
 
-function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
+export default function ReviewPage() {
+    const book = useLoaderData<typeof loader>();
+    const navigate = useNavigate();
     const dateRead = formatDateRead(book);
     const coverWidth = book.widthPx ?? 200;
     const rating = Math.min(10, Math.max(0, Math.round(book.rating)));
@@ -105,35 +108,33 @@ function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
                     </div>
                 </div>
 
-                {detail?.synopsis && (
+                {book.synopsis && (
                     <section className="review-synopsis">
                         <h2>О книге</h2>
-                        <p>{detail.synopsis}</p>
+                        <p>{book.synopsis}</p>
                     </section>
                 )}
 
-                {detail?.review && (
+                {book.review && (
                     <section className="review-body">
                         <h2>Мой отзыв</h2>
                         <div
                             className="review-rich"
                             // biome-ignore lint/security/noDangerouslySetInnerHtml: отзыв чистится sanitizeHtml
                             dangerouslySetInnerHTML={{
-                                __html: sanitizeHtml(detail.review),
+                                __html: sanitizeHtml(book.review),
                             }}
                         />
                     </section>
                 )}
             </article>
 
-            <a className="review-back" {...linkProps("/")}>
+            <Link className="review-back" to="/">
                 ← вернуться к шкафу
-            </a>
+            </Link>
         </main>
     );
 }
-
-export default memo(ReviewPage);
 
 function formatDateRead(book: Book): string | null {
     if (!book.dateRead) return null;

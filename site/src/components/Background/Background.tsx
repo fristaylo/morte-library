@@ -1,4 +1,5 @@
 import { type CSSProperties, memo, useEffect, useRef } from "react";
+import { useHour } from "../../hooks/useHour";
 import "./Background.scss";
 import { useDaylight } from "./daylight";
 
@@ -382,13 +383,8 @@ function BackgroundScene({ night }: { night: boolean }) {
 
 const Scene = memo(BackgroundScene);
 
-export default function Background({
-    hour,
-    drift = false,
-}: {
-    hour: number;
-    drift?: boolean;
-}) {
+export default function Background() {
+    const { hour, dialOpen: drift } = useHour();
     const night = useDaylight(hour);
     const shiftRef = useRef((hour * STAR_DRIFT) % 1600);
     if (drift) shiftRef.current = (hour * STAR_DRIFT) % 1600;

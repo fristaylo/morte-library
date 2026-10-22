@@ -19,6 +19,7 @@ import {
     useRef,
     useState,
 } from "react";
+import { useNavigate } from "react-router";
 import {
     type Book,
     type Category,
@@ -29,7 +30,6 @@ import {
     saveBookOrder,
 } from "../../api";
 import { useAuth } from "../../hooks/useAuth";
-import { navigate } from "../../lib/router";
 import BookSpine, { BookSpinePreview } from "../BookSpine/BookSpine";
 import Dialog from "../Dialogs/Dialog";
 import LoginDialog from "../Dialogs/LoginDialog/LoginDialog";
@@ -333,6 +333,7 @@ function Bookcase({
     categories: Category[];
     onChanged: () => Promise<void> | void;
 }) {
+    const navigate = useNavigate();
     const rowRef = useRef<HTMLDivElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
     const metrics = useShelfMetrics(bodyRef, rowRef);
@@ -571,7 +572,7 @@ function Bookcase({
     };
 
     const openAdd = () => {
-        navigate("/add");
+        navigate("/book/add");
     };
     const openCreateCategory = () => setCategoryDialog({ mode: "create" });
     const openEditCategory = (id: number) =>
