@@ -1,5 +1,6 @@
 import { Link, useMatch } from "react-router";
 import { useLibrary, useRandomBook } from "../../hooks/useLibrary";
+import { LogoIcon } from "../../icons";
 import TimeDial from "../TimeDial/TimeDial";
 import "./Header.scss";
 
@@ -12,20 +13,7 @@ export default function Header() {
     return (
         <header className="topbar">
             <Link className="topbar-brand" to="/">
-                <svg
-                    width="30"
-                    height="30"
-                    viewBox="0 0 26 26"
-                    aria-hidden="true"
-                >
-                    <circle cx="13" cy="13" r="13" fill="var(--mist-2)" />
-                    <circle cx="19.5" cy="6.5" r="2.2" fill="#fff" />
-                    <path d="M3 19.5 L9.5 8.5 L16 19.5 Z" fill="#fff" />
-                    <path
-                        d="M11 19.5 L16.5 11 L23 19.5 Z"
-                        fill="var(--ridge-near)"
-                    />
-                </svg>
+                <LogoIcon size={30} />
                 <span>Библиотека Морте</span>
             </Link>
             <div className="topbar-actions">

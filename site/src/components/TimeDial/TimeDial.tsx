@@ -1,5 +1,6 @@
 import { type KeyboardEvent, type PointerEvent, useRef } from "react";
 import { useHour } from "../../hooks/useHour";
+import { ClockIcon } from "../../icons";
 import Dialog from "../Dialogs/Dialog";
 import "./TimeDial.scss";
 
@@ -60,39 +61,7 @@ export default function TimeDial() {
                 aria-haspopup="dialog"
                 onClick={() => show(true)}
             >
-                <svg
-                    width="19"
-                    height="19"
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                >
-                    <circle
-                        cx="10"
-                        cy="10"
-                        r="8.2"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                    />
-                    <g stroke="currentColor" strokeLinecap="round">
-                        <line
-                            x1="10"
-                            y1="10"
-                            x2="10"
-                            y2="6"
-                            strokeWidth="1.6"
-                            transform={`rotate(${((hour % 12) / 12) * 360} 10 10)`}
-                        />
-                        <line
-                            x1="10"
-                            y1="10"
-                            x2="10"
-                            y2="4.4"
-                            strokeWidth="1.1"
-                            transform={`rotate(${(hour % 1) * 360} 10 10)`}
-                        />
-                    </g>
-                </svg>
+                <ClockIcon size={19} hour={hour} />
             </button>
             <Dialog open={open} onClose={() => show(false)} title="Время суток">
                 <div className="time-dial">
