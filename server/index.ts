@@ -1,4 +1,4 @@
-import mysql from "mysql2/promise";
+import { db, migrate } from "./db";
 import { equals, isAuthorized, makeToken, SESSION_TTL } from "./auth";
 
 function env(name: string): string {
@@ -14,70 +14,10 @@ const USER = env("USER");
 const PASSWORD = env("PASSWORD");
 
 const PORT = 3001;
-const DB_HOST = process.env.DB_HOST ?? "localhost";
-const DB_PORT = 3306;
-const DB_NAME = "morte";
 
 const IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"]);
 
-const pool = mysql.createPool({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: USER,
-    password: PASSWORD,
-    database: DB_NAME,
-    charset: "utf8mb4",
-    dateStrings: true,
-    connectionLimit: 5,
-});
-
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS books (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    slug VARCHAR(191) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    author VARCHAR(255) NOT NULL,
-    synopsis TEXT NULL,
-    review MEDIUMTEXT NULL,
-    rating TINYINT UNSIGNED NOT NULL DEFAULT 0,
-    pages SMALLINT UNSIGNED NULL,
-    width_px SMALLINT UNSIGNED NULL,
-    height_px SMALLINT UNSIGNED NULL,
-    spine_color CHAR(7) NOT NULL DEFAULT '#7ab8e0',
-    spine_text_color CHAR(7) NOT NULL DEFAULT '#fdfaf4',
-    cover_image MEDIUMBLOB NULL,
-    cover_mime VARCHAR(64) NULL,
-    spine_image MEDIUMBLOB NULL,
-    spine_mime VARCHAR(64) NULL,
-    spine_ratio DECIMAL(5, 3) NULL,
-    date_read DATE NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_books_slug (slug),
-    KEY idx_books_author (author),
-    KEY idx_books_rating (rating),
-    KEY idx_books_date_read (date_read)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-`;
-
-const CATEGORIES_SCHEMA = `
-CREATE TABLE IF NOT EXISTS categories (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(191) NOT NULL,
-    position INT UNSIGNED NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-`;
-
-const IMAGES_SCHEMA = `
-CREATE TABLE IF NOT EXISTS images (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    mime VARCHAR(64) NOT NULL,
-    data MEDIUMBLOB NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-`;
+const pool = db.$client;
 
 async function waitForDb(): Promise<void> {
     for (let attempt = 1; attempt <= 30; attempt++) {
@@ -622,25 +562,7 @@ async function seedCategories(): Promise<void> {
 }
 
 await waitForDb();
-await pool.query(SCHEMA);
-await pool.query(CATEGORIES_SCHEMA);
-await pool.query(IMAGES_SCHEMA);
-await pool
-    .query("ALTER TABLE books ADD COLUMN spine_ratio DECIMAL(5, 3) NULL")
-    .catch(() => {});
-await pool
-    .query("ALTER TABLE books ADD COLUMN category_id INT UNSIGNED NULL")
-    .catch(() => {});
-await pool
-    .query(
-        "ALTER TABLE books ADD COLUMN position INT UNSIGNED NOT NULL DEFAULT 0",
-    )
-    .catch(() => {});
-await pool
-    .query(
-        "ALTER TABLE books ADD KEY idx_books_category (category_id, position)",
-    )
-    .catch(() => {});
+await migrate();
 await seedCategories();
 
 Bun.serve({

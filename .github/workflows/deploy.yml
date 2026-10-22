@@ -65,7 +65,7 @@ jobs:
                   username: root
                   key: ${{ secrets.SSH_KEY }}
                   source: docker-compose.yml
-                  target: ~/ugolok-morte
+                  target: ~/morte-library
 
             - name: Deploy over SSH
               uses: appleboy/ssh-action@v1.2.0
@@ -83,7 +83,7 @@ jobs:
                   envs: IMAGE,API_IMAGE,GHCR_USER,GHCR_TOKEN,APP_USER,APP_PASSWORD
                   script: |
                       set -e
-                      cd ~/ugolok-morte
+                      cd ~/morte-library
 
                       if ! command -v docker >/dev/null 2>&1; then
                         echo "Docker not found, installing via get.docker.com…"
@@ -101,17 +101,35 @@ jobs:
                       echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
                       export IMAGE API_IMAGE
                       docker compose pull
+
+                      if docker volume inspect ugolok-morte_mysql-data >/dev/null 2>&1 && [ ! -f .migrated ]; then
+                        docker compose stop db
+                        (cd ~/ugolok-morte && docker compose up -d --wait mysql)
+                        (cd ~/ugolok-morte && docker compose exec -T mysql sh -c 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction --hex-blob morte') > migrate.sql
+                        (cd ~/ugolok-morte && docker compose down)
+                        docker compose up -d --wait db
+                        docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" morte_library' < migrate.sql
+                        touch .migrated
+                      fi
+
                       if ! docker compose up -d --remove-orphans; then
                         echo "===== deploy failed ====="
                         free -m || true
                         docker compose ps -a || true
-                        echo "===== mysql logs ====="
-                        docker compose logs --tail=300 mysql || true
+                        echo "===== db logs ====="
+                        docker compose logs --tail=300 db || true
+                        echo "===== api logs ====="
+                        docker compose logs --tail=300 api || true
                         exit 1
                       fi
                       mkdir -p /etc/caddy/sites
                       [ -f /etc/caddy/Caddyfile ] || echo 'import sites/*' > /etc/caddy/Caddyfile
-                      printf 'lib.agoncharenko.dev {\n\treverse_proxy 127.0.0.1:8081\n}\n' > /etc/caddy/sites/morte.caddy
-                      docker run -d --name caddy --network host --restart always -v /etc/caddy:/etc/caddy -v caddy_data:/data -v caddy_config:/config caddy:2 2>/dev/null \
-                        || docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+                      rm -f /etc/caddy/sites/morte.caddy
+                      printf 'lib.agoncharenko.dev {\n\treverse_proxy 127.0.0.1:8081\n}\n' > /etc/caddy/sites/morte-library.caddy
+                      if docker inspect caddy >/dev/null 2>&1; then
+                        docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+                      else
+                        docker run -d --name caddy --network host --restart always -v /etc/caddy:/etc/caddy -v caddy_data:/data -v caddy_config:/config caddy:2
+                      fi
                       docker image prune -f
+                      echo "Deployment finished successfully."
