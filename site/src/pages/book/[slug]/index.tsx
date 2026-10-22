@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
-import type { Book } from "../../../api";
-import { coverUrl } from "../../../api";
+import { coverUrl, formatDateRead } from "../../../api";
 import LoginDialog from "../../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../../hooks/useAuth";
 import { EditIcon } from "../../../icons";
@@ -125,14 +124,4 @@ export default function ReviewPage() {
             </Link>
         </main>
     );
-}
-
-function formatDateRead(book: Book): string | null {
-    if (!book.dateRead) return null;
-    const d = new Date(book.dateRead);
-    if (Number.isNaN(d.getTime())) return null;
-    return new Intl.DateTimeFormat("ru", {
-        month: "long",
-        year: "numeric",
-    }).format(d);
 }

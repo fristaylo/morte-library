@@ -274,7 +274,7 @@ export async function reorderBooks(req: Request): Promise<Response> {
         for (const g of groups as OrderGroup[]) {
             for (let i = 0; i < g.slugs.length; i++) {
                 await conn.query(
-                    "UPDATE books SET category_id = ?, position = ? WHERE slug = ?",
+                    "UPDATE books SET category_id = ?, position = ?, updated_at = updated_at WHERE slug = ?",
                     [g.categoryId, i, g.slugs[i]],
                 );
             }

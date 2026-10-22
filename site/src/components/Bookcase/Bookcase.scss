@@ -4,177 +4,84 @@
     margin: 0 auto;
 
     --case-w: min(1024px, 96vw);
-    --shelf-tilt: 9deg;
-    --fore: 0.92;
-    --yaw-max: 6deg;
-    --shelf-depth: 190px;
-    --persp: 2160px;
-    --plank-inset: 24px;
-    --wall-run: calc(
-        (var(--case-w) - 2 * var(--plank-inset)) * 0.5 * (1 - var(--fore))
-    );
-    --rise: calc(var(--shelf-depth) * sin(var(--shelf-tilt)) * var(--fore));
-
-    --grain-v: repeating-linear-gradient(
-        90deg,
-        rgba(120, 140, 165, 0.05) 0 1px,
-        rgba(255, 255, 255, 0) 1px 3px
-    );
-    --grain-h: repeating-linear-gradient(
-        0deg,
-        rgba(120, 140, 165, 0.06) 0 1px,
-        rgba(255, 255, 255, 0) 1px 3px
-    );
-
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 40px 0 0;
-        border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-float);
-        z-index: -1;
-    }
+    --inset: 24px;
 }
 
 .bookcase-body {
     position: relative;
-    overflow: hidden;
-    padding: 0 var(--plank-inset);
-    background:
-        var(--grain-v),
-        linear-gradient(180deg, #d5dce6, #eef1f6),
-        var(--grain-v),
-        linear-gradient(
-            90deg,
-            var(--case-2) 0,
-            var(--case-1) calc(var(--plank-inset) * 0.45),
-            var(--case-3) var(--plank-inset),
-            var(--case-3) calc(100% - var(--plank-inset)),
-            var(--case-1) calc(100% - var(--plank-inset) * 0.45),
-            var(--case-2) 100%
-        );
-    background-clip: content-box, content-box, border-box, border-box;
-    box-shadow:
-        inset 6px 0 7px -6px rgba(70, 95, 125, 0.45),
-        inset -6px 0 7px -6px rgba(70, 95, 125, 0.45);
 }
 
-.bookcase-wall {
+.bookcase-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
+}
+
+.bookcase-hit {
+    position: absolute;
+    inset: 0;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bookcase-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.book-btn,
+.plate-btn,
+.ink-btn {
     position: absolute;
     top: 0;
-    bottom: calc(-1 * var(--rise));
-    width: var(--wall-run);
-}
-
-.bookcase-wall-left {
-    left: var(--plank-inset);
-    transform-origin: 0 50%;
-    transform: skewY(calc(-1 * atan2(var(--rise), var(--wall-run))));
-    background:
-        linear-gradient(90deg, var(--case-1), var(--case-2) 45%, var(--case-3)),
-        var(--grain-v);
-    box-shadow: inset -18px 0 22px -12px rgba(40, 58, 82, 0.55);
-}
-
-.bookcase-wall-right {
-    right: var(--plank-inset);
-    transform-origin: 100% 50%;
-    transform: skewY(atan2(var(--rise), var(--wall-run)));
-    background:
-        linear-gradient(
-                270deg,
-                var(--case-1),
-                var(--case-2) 45%,
-                var(--case-3)
-            ),
-        var(--grain-v);
-    box-shadow: inset 18px 0 22px -12px rgba(40, 58, 82, 0.55);
-}
-
-.bookcase-category {
-    position: static;
-}
-
-.bookcase-body--dragging {
-    user-select: none;
-}
-
-.shelf-plate {
-    position: absolute;
-    left: 2px;
-    bottom: 0;
-    z-index: 100;
-    padding: 3px 9px;
+    left: 0;
+    padding: 0;
     border: 0;
-    border-radius: 2px;
-    background: var(--plate-face);
-    box-shadow: 0 8px 12px -7px rgba(20, 32, 50, 0.65);
-    font-family: var(--font-display);
-    font-size: 0.92rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--mist);
-    white-space: nowrap;
-    user-select: none;
+    background: transparent;
+    pointer-events: none;
 
-    --plate-dx: 1px;
-    --plate-dy: 1.5px;
-    --plate-face: #54657a;
-    --plate-top: #8698ab;
-    --plate-side: #333e4a;
-
-    &::before,
-    &::after {
-        content: "";
-        position: absolute;
-    }
-
-    &::before {
-        bottom: 100%;
-        left: 0;
-        right: 0;
-        height: var(--plate-dy);
-        transform-origin: 0 100%;
-        transform: skewX(calc(-1 * atan2(var(--plate-dx), var(--plate-dy))));
-        background: var(--plate-top);
-    }
-
-    &::after {
-        top: 0;
-        left: 100%;
-        width: var(--plate-dx);
-        height: 100%;
-        transform-origin: 0 0;
-        transform: skewY(calc(-1 * atan2(var(--plate-dy), var(--plate-dx))));
-        background: var(--plate-side);
-    }
-
-    &:is(button) {
-        cursor: pointer;
-        transition: background 0.2s ease;
-
-        &:hover {
-            --plate-face: #5f7186;
-        }
-
-        &:focus-visible {
-            outline: 2px solid var(--accent);
-            outline-offset: 3px;
-        }
+    &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
     }
 }
 
-.bookcase-shelf--add .bookcase-books {
-    padding-bottom: 150px;
+.ink-btn {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.plate-btn {
+    overflow: hidden;
+    color: transparent;
+    font-size: 0;
+}
+
+.plate-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 .shelf-add {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
     border: 2px dashed color-mix(in srgb, var(--case-edge) 75%, transparent);
     border-radius: 50%;
     background: color-mix(in srgb, var(--case-1) 50%, transparent);
@@ -182,6 +89,7 @@
     font-size: 1.8rem;
     line-height: 1;
     color: rgba(70, 95, 125, 0.45);
+    pointer-events: auto;
     transition:
         color 0.2s ease,
         background 0.2s ease,
@@ -199,123 +107,79 @@
     }
 }
 
-.bookcase-books {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    min-height: 290px;
-    padding-top: calc(var(--rise) + 13px);
-    padding-bottom: 12px;
-    padding-inline: calc(var(--wall-run) + 8px);
+.bookcase--flat {
+    margin-top: 240px;
 
-    &::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background:
-            linear-gradient(
-                90deg,
-                rgba(30, 46, 68, 0.18) 0%,
-                rgba(30, 46, 68, 0.05) 9%,
-                rgba(30, 46, 68, 0) 26%,
-                rgba(30, 46, 68, 0) 74%,
-                rgba(30, 46, 68, 0.05) 91%,
-                rgba(30, 46, 68, 0.18) 100%
-            ),
-            linear-gradient(
-                180deg,
-                rgba(40, 58, 82, 0.2) 0%,
-                rgba(40, 58, 82, 0.05) 22%,
-                rgba(40, 58, 82, 0) 50%,
-                rgba(40, 58, 82, 0.12) 100%
-            );
-        box-shadow: inset 0 22px 26px -12px rgba(30, 46, 68, 0.6);
+    .bookcase-flat {
+        display: grid;
+        gap: 0;
+        padding-inline: var(--inset);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(180deg, #d5dce6, #eef1f6);
+        box-shadow: var(--shadow-float);
     }
-}
 
-.bookcase-top,
-.bookcase-board {
-    position: relative;
-    z-index: 0;
-    height: 15px;
-    margin: -6px 0 0;
-    background: linear-gradient(
-            180deg,
-            var(--case-1) 0%,
-            var(--case-2) 55%,
-            var(--case-edge) 100%
-        ),
-        var(--grain-h);
-    border-radius: 2px;
-    box-shadow: 0 12px 18px -6px rgba(70, 95, 125, 0.2);
+    .flat-shelf {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 7px;
+        padding: 34px 0 12px;
+        border-bottom: 15px solid var(--case-1);
+    }
 
-    &::before {
-        content: "";
+    .flat-name {
         position: absolute;
+        top: 8px;
         left: 0;
-        right: 0;
-        bottom: 100%;
-        height: var(--shelf-depth);
-        transform-origin: 50% 100%;
-        transform: perspective(var(--persp))
-            rotateX(calc(90deg - var(--shelf-tilt)));
-        background:
-            linear-gradient(
-                180deg,
-                #c3cedd 0%,
-                #dbe3ee 12%,
-                #eef2f8 45%,
-                #f8fafd 100%
-            ),
-            var(--grain-h);
-        box-shadow:
-            inset 0 12px 18px -10px rgba(40, 58, 82, 0.55),
-            inset 0 -2px 3px rgba(255, 255, 255, 0.85);
+        padding: 0;
+        border: 0;
+        background: none;
+        font-family: var(--font-display);
+        font-size: 0.92rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+
+        &:is(button) {
+            cursor: pointer;
+        }
     }
-}
 
-.bookcase-top {
-    top: 10px;
-    z-index: 2;
-    height: 32px;
-    margin: 0 -30px;
-    border-radius: 3px;
+    .book-btn {
+        position: static;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 2px;
+        box-shadow: 2px 2px 5px rgba(20, 32, 50, 0.35);
+        cursor: pointer;
+        pointer-events: auto;
 
-    &::before {
-        background:
-            linear-gradient(180deg, #e6ecf4 0%, #f2f5fa 40%, #fbfcfe 100%),
-            var(--grain-h);
-        box-shadow: inset 0 -2px 3px rgba(255, 255, 255, 0.85);
+        span {
+            max-height: 100%;
+            padding: 6px 0;
+            overflow: hidden;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            writing-mode: vertical-rl;
+        }
     }
-}
 
-.bookcase-plinth {
-    position: relative;
-    height: 34px;
-    margin: 0 -6px;
-    background:
-        linear-gradient(
-            180deg,
-            var(--case-1) 0%,
-            var(--case-2) 22%,
-            rgba(70, 95, 125, 0.12) 34%,
-            var(--case-2) 38%,
-            var(--case-edge) 100%
-        ),
-        var(--grain-v);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    box-shadow: inset 0 3px 6px rgba(255, 255, 255, 0.7);
+    .shelf-add--flat {
+        position: static;
+        width: 60px;
+        height: 60px;
+        margin: 16px 0;
+    }
 }
 
 @media (max-width: 640px) {
     .bookcase {
-        --plank-inset: 12px;
-    }
-
-    .bookcase-books {
-        min-height: 300px;
+        --inset: 12px;
     }
 }

@@ -158,3 +158,13 @@ export function coverUrl(book: Book): string {
 export function spineImageUrl(book: Book): string {
     return `/api/books/${book.slug}/spine?v=${encodeURIComponent(book.updatedAt)}`;
 }
+
+export function formatDateRead(book: Book): string | null {
+    if (!book.dateRead) return null;
+    const d = new Date(book.dateRead);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Intl.DateTimeFormat("ru", {
+        month: "long",
+        year: "numeric",
+    }).format(d);
+}

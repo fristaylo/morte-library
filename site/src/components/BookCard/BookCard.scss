@@ -1,0 +1,120 @@
+.book-card {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(360px, calc(100vw - 24px));
+    padding: 16px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-float);
+
+    .btn {
+        justify-content: center;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        animation: book-card-in 0.18s ease-out;
+    }
+
+    @media (max-width: 640px) {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+}
+
+.book-card-head {
+    display: flex;
+    gap: 14px;
+}
+
+.book-card-cover {
+    flex-shrink: 0;
+    width: 92px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 4px 8px 8px 4px;
+    box-shadow: 0 10px 18px -10px rgba(34, 43, 54, 0.5);
+
+    &--drawn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        text-align: center;
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 0.95rem;
+        line-height: 1.25;
+        overflow: hidden;
+    }
+}
+
+.book-card-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.book-card-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+}
+
+.book-card-author {
+    margin-top: 4px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+}
+
+.book-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin-top: auto;
+    padding-top: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+.book-card-stars {
+    letter-spacing: 0.1em;
+    color: var(--mist-2);
+}
+
+.book-card-stars-filled {
+    color: var(--gold);
+}
+
+.book-card-synopsis {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 1.05rem;
+    line-height: 1.45;
+}
+
+@keyframes book-card-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+    }
+}

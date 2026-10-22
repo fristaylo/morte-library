@@ -1,19 +1,8 @@
 import {
-    DndContext,
-    type DragEndEvent,
-    type DragMoveEvent,
-    DragOverlay,
-    type DragStartEvent,
-    type DropAnimation,
-    MouseSensor,
-    TouchSensor,
-    useSensor,
-    useSensors,
-} from "@dnd-kit/core";
-import {
     memo,
-    type ReactNode,
-    type RefObject,
+    type PointerEvent as ReactPointerEvent,
+    useCallback,
+    useEffect,
     useLayoutEffect,
     useMemo,
     useRef,
@@ -30,209 +19,733 @@ import {
     saveBookOrder,
 } from "../../api";
 import { useAuth } from "../../hooks/useAuth";
-import BookSpine, { BookSpinePreview } from "../BookSpine/BookSpine";
+import BookCard from "../BookCard/BookCard";
 import Dialog from "../Dialogs/Dialog";
 import LoginDialog from "../Dialogs/LoginDialog/LoginDialog";
 import Inkwell from "../Inkwell/Inkwell";
 import {
-    packRows,
-    type Row,
-    type ShelfMetrics,
-    shelfLayout,
-    shelfYaws,
-    visibleRange,
-} from "./layout";
+    type Box,
+    createShelfScene,
+    type Hit,
+    type SceneInfo,
+    type ShelfScene,
+    type Slot,
+    spineSize,
+} from "./shelfScene";
 import "./Bookcase.scss";
 
-const DEFAULT_SHELF_WIDTH = 936;
-const DEFAULT_METRICS: ShelfMetrics = {
-    width: DEFAULT_SHELF_WIDTH,
-    padY: 55,
-    minHeight: 290,
-    board: 9,
-    borderBox: true,
-};
+const MOUSE_DISTANCE = 5;
+const TOUCH_DELAY = 400;
+const TOUCH_TOLERANCE = 8;
+const SCROLL_EDGE = 60;
+const SCROLL_SPEED = 20;
+const MIN_TAP = 44;
 
-const DROP_MS = 250;
-const DROP_EASE = "cubic-bezier(0.22, 0.61, 0.36, 1)";
-const FLIP_ID = "book-flip";
-
-function translate(t: { x: number; y: number }): string {
-    return `translate3d(${t.x}px, ${t.y}px, 0)`;
+interface Press {
+    slug: string;
+    pointerId: number;
+    touch: boolean;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+    active: boolean;
+    timer: number;
 }
 
-const dropAnimation: DropAnimation = {
-    duration: DROP_MS,
-    easing: DROP_EASE,
-    keyframes: ({ active, dragOverlay, transform: { initial, final } }) => {
-        const flying =
-            dragOverlay.node.querySelector<HTMLElement>(".book--overlay");
-        if (!flying) {
-            return [
-                { transform: translate(initial) },
-                { transform: translate(final) },
-            ];
-        }
-        const from = getComputedStyle(flying).transform;
-        flying.classList.add("book--landing");
-        const to = getComputedStyle(flying).transform;
-        const landed = flying.getBoundingClientRect();
-        flying.classList.remove("book--landing");
-        flying.animate([{ transform: from }, { transform: to }], {
-            duration: DROP_MS,
-            easing: DROP_EASE,
-            fill: "forwards",
-        });
-        const t = getComputedStyle(active.node).translate;
-        const [tx = 0, ty = 0] =
-            t === "none" ? [] : t.split(" ").map(parseFloat);
-        const ghost = active.node.getBoundingClientRect();
-        return [
-            { transform: translate(initial) },
-            {
-                transform: translate({
-                    x: initial.x + ghost.left - tx - landed.left,
-                    y: initial.y + ghost.top - ty - landed.top,
-                }),
-            },
-        ];
-    },
-    sideEffects: ({ active }) => {
-        active.node.classList.add("book--ghost");
-        return () => active.node.classList.remove("book--ghost");
-    },
-};
+interface ShelfHandlers {
+    toggle(slug: string): void;
+    edit(id: number): void;
+    focus(slug: string): void;
+    blur(): void;
+}
 
-function metricsEqual(a: ShelfMetrics, b: ShelfMetrics): boolean {
-    return (
-        a.width === b.width &&
-        a.padY === b.padY &&
-        a.minHeight === b.minHeight &&
-        a.board === b.board &&
-        a.borderBox === b.borderBox
+interface DropTarget {
+    categoryId: number;
+    insertAt: number;
+}
+
+function Bookcase({
+    books,
+    categories,
+    onChanged,
+}: {
+    books: Book[];
+    categories: Category[];
+    onChanged: () => Promise<void> | void;
+}) {
+    const navigate = useNavigate();
+    const { authorized } = useAuth();
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const hitRef = useRef<HTMLDivElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const sceneRef = useRef<ShelfScene | null>(null);
+    const pressRef = useRef<Press | null>(null);
+    const snapshotRef = useRef<Book[] | null>(null);
+    const lastTargetRef = useRef<DropTarget | null>(null);
+    const frameRef = useRef(0);
+    const suppressClickRef = useRef(false);
+    const [flat, setFlat] = useState(false);
+    const [scene, setScene] = useState<ShelfScene | null>(null);
+    const [info, setInfo] = useState<SceneInfo | null>(null);
+    const [size, setSize] = useState({ width: 1024, cw: 1024, ch: 800 });
+    const [loginOpen, setLoginOpen] = useState(false);
+    const [picked, setPicked] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const [categoryDialog, setCategoryDialog] = useState<{
+        mode: "create" | "edit";
+        category?: Category;
+    } | null>(null);
+
+    const [local, setLocal] = useState<{
+        base: Book[];
+        items: Book[];
+    } | null>(null);
+    const items = local && local.base === books ? local.items : books;
+    const live = useRef({ books, items, categories, onChanged });
+    live.current = { books, items, categories, onChanged };
+
+    const bodyH =
+        info && scene
+            ? Math.ceil(info.height / scene.worldPerPx(size.width))
+            : 0;
+    const labels = useMemo(
+        () => new Map(books.map((b) => [b.slug, `${b.title} — ${b.author}`])),
+        [books],
     );
-}
 
-function useShelfMetrics(
-    bodyRef: RefObject<HTMLElement | null>,
-    rowRef: RefObject<HTMLElement | null>,
-): ShelfMetrics {
-    const [metrics, setMetrics] = useState<ShelfMetrics>(DEFAULT_METRICS);
+    useLayoutEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const next = createShelfScene(canvas);
+        if (!next) {
+            setFlat(true);
+            return;
+        }
+        sceneRef.current = next;
+        setScene(next);
+        return () => {
+            next.dispose();
+            sceneRef.current = null;
+            setScene(null);
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (scene) setInfo(scene.setLibrary(items, categories, authorized));
+    }, [scene, items, categories, authorized]);
+
     useLayoutEffect(() => {
         const body = bodyRef.current;
-        if (!body) return;
+        const canvas = canvasRef.current;
+        if (!body || !canvas) return;
         const measure = () => {
-            const el = rowRef.current;
-            if (!el) return;
-            const cs = getComputedStyle(el);
-            const pad =
-                parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-            const inner = el.clientWidth - pad;
-            if (inner <= 0) return;
-            const padY =
-                parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-            const minHeightRaw = parseFloat(cs.minHeight);
-            const boardEl =
-                el.parentElement?.querySelector<HTMLElement>(".bookcase-board");
-            const marginTop = boardEl
-                ? parseFloat(getComputedStyle(boardEl).marginTop)
-                : NaN;
-            const board = boardEl
-                ? boardEl.offsetHeight +
-                  (Number.isNaN(marginTop) ? 0 : marginTop)
-                : 9;
-            const next: ShelfMetrics = {
-                width: Math.max(160, inner),
-                padY,
-                minHeight: Number.isNaN(minHeightRaw) ? 290 : minHeightRaw,
-                board,
-                borderBox: cs.boxSizing === "border-box",
-            };
-            setMetrics((prev) => (metricsEqual(prev, next) ? prev : next));
+            const width = Math.floor(body.clientWidth);
+            const { clientWidth: cw, clientHeight: ch } = canvas;
+            if (width === 0 || cw === 0 || ch === 0) return;
+            setSize((prev) =>
+                prev.width === width && prev.cw === cw && prev.ch === ch
+                    ? prev
+                    : { width, cw, ch },
+            );
         };
         measure();
-        const ro = new ResizeObserver(measure);
-        ro.observe(body);
-        return () => ro.disconnect();
-    }, [bodyRef, rowRef]);
-    return metrics;
-}
+        const observer = new ResizeObserver(measure);
+        observer.observe(body);
+        observer.observe(canvas);
+        window.addEventListener("resize", measure);
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", measure);
+        };
+    }, []);
 
-function resolveDrop(
-    body: HTMLElement,
-    items: Book[],
-    activeSlug: string,
-    categories: Category[],
-    cx: number,
-    cy: number,
-    ghostShrink: number,
-): { categoryId: number; insertAt: number } | null {
-    const rowEls = Array.from(
-        body.querySelectorAll<HTMLElement>(".bookcase-books[data-category]"),
-    );
-    let rowEl: HTMLElement | undefined;
-    let bestDist = Infinity;
-    for (const el of rowEls) {
-        const top = el.offsetTop;
-        const height = el.offsetHeight;
-        if (cy >= top && cy < top + height) {
-            rowEl = el;
-            break;
+    const syncScroll = useCallback(() => {
+        const body = bodyRef.current;
+        if (body) sceneRef.current?.setTop(body.getBoundingClientRect().top);
+    }, []);
+
+    const place = useCallback(() => {
+        const layer = overlayRef.current;
+        const current = sceneRef.current;
+        if (!layer || !current) return;
+        const view = current.project();
+        const w = layer.clientWidth;
+        const h = layer.clientHeight;
+        for (const el of layer.querySelectorAll<HTMLElement>("[data-slug]")) {
+            put(el, view.books.get(el.dataset.slug ?? ""), w, h, 0);
         }
-        const dist = cy < top ? top - cy : cy - (top + height);
-        if (dist < bestDist) {
-            bestDist = dist;
-            rowEl = el;
+        for (const el of layer.querySelectorAll<HTMLElement>("[data-row]")) {
+            put(el, view.plates[Number(el.dataset.row)], w, h, 0);
         }
-    }
-    if (!rowEl) return null;
-    const categoryId = Number(rowEl.dataset.category);
+        for (const el of layer.querySelectorAll<HTMLElement>("[data-add]")) {
+            put(el, view.add, w, h, MIN_TAP);
+        }
+        for (const el of layer.querySelectorAll<HTMLElement>("[data-ink]")) {
+            put(el, view.ink, w, h, 0);
+        }
+    }, []);
 
-    const rowEls2 = Array.from(
-        rowEl.querySelectorAll<HTMLElement>("[data-slug]"),
-    );
-    const ghostIdx = rowEls2.findIndex((el) => el.dataset.slug === activeSlug);
-    const shift = ghostIdx === -1 ? 0 : ghostShrink / 2;
+    useLayoutEffect(() => {
+        if (!scene) return;
+        setInfo(scene.resize(size.cw, size.ch, size.width));
+        syncScroll();
+    }, [scene, size.cw, size.ch, size.width, syncScroll]);
 
-    const rowSlugs: string[] = [];
-    let k = 0;
-    rowEls2.forEach((el, i) => {
-        if (el.dataset.slug === activeSlug) return;
-        rowSlugs.push(el.dataset.slug as string);
-        const center =
-            el.offsetLeft +
-            el.offsetWidth / 2 +
-            (i < ghostIdx ? shift : -shift);
-        if (center < cx) k += 1;
-    });
+    useLayoutEffect(place);
 
-    const rest = items.filter((b) => b.slug !== activeSlug);
-    let insertAt: number;
-    if (k < rowSlugs.length) {
-        insertAt = rest.findIndex((b) => b.slug === rowSlugs[k]);
-    } else if (rowSlugs.length > 0) {
-        insertAt =
-            rest.findIndex((b) => b.slug === rowSlugs[rowSlugs.length - 1]) + 1;
-    } else {
-        let lastInCat = -1;
-        rest.forEach((b, idx) => {
-            if (b.categoryId === categoryId) lastInCat = idx;
+    useLayoutEffect(() => {
+        if (!scene) return;
+        const onScroll = () => {
+            syncScroll();
+            place();
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, [scene, syncScroll, place]);
+
+    useEffect(() => {
+        if (!scene) return;
+        const root = document.documentElement;
+        let prev = "";
+        const apply = () => {
+            const style = getComputedStyle(root);
+            const case1 = style.getPropertyValue("--case-1").trim();
+            const case2 = style.getPropertyValue("--case-2").trim();
+            const key = `${case1}|${case2}`;
+            if (key === prev) return;
+            prev = key;
+            scene.setCaseColors(case1, case2);
+        };
+        apply();
+        const observer = new MutationObserver(apply);
+        observer.observe(root, {
+            attributes: true,
+            attributeFilter: ["style"],
         });
-        if (lastInCat !== -1) {
-            insertAt = lastInCat + 1;
-        } else {
-            const destPos = categories.findIndex((c) => c.id === categoryId);
-            const nextIdx = rest.findIndex(
-                (b) =>
-                    categories.findIndex((c) => c.id === b.categoryId) >
-                    destPos,
-            );
-            insertAt = nextIdx === -1 ? rest.length : nextIdx;
-        }
-    }
+        return () => observer.disconnect();
+    }, [scene]);
 
-    return { categoryId, insertAt };
+    useEffect(() => {
+        scene?.setPicked(picked);
+    }, [scene, picked]);
+
+    const hoverAt = (hit: Hit | null) => {
+        sceneRef.current?.setHover(hit?.kind === "book" ? hit.slug : null);
+        if (hitRef.current) {
+            hitRef.current.style.cursor =
+                hit && (hit.kind !== "plate" || authorized) ? "pointer" : "";
+        }
+    };
+
+    const setOrder = (next: Book[]) =>
+        setLocal({ base: live.current.books, items: next });
+
+    const reorderAt = (press: Press): Book[] | null => {
+        const slot = sceneRef.current?.slotAt(press.x, press.y, press.slug);
+        if (!slot) return null;
+        const target = insertTarget(
+            live.current.items,
+            live.current.categories,
+            press.slug,
+            slot,
+        );
+        const prev = lastTargetRef.current;
+        if (
+            prev?.categoryId === target.categoryId &&
+            prev.insertAt === target.insertAt
+        ) {
+            return null;
+        }
+        lastTargetRef.current = target;
+        return reorder(live.current.items, press.slug, target);
+    };
+
+    const follow = (press: Press) => {
+        syncScroll();
+        sceneRef.current?.dragTo(press.x, press.y);
+        const next = reorderAt(press);
+        if (next) setOrder(next);
+    };
+
+    const autoScroll = () => {
+        const press = pressRef.current;
+        if (!press?.active) return;
+        const bottom = window.innerHeight - SCROLL_EDGE;
+        const speed =
+            press.y < SCROLL_EDGE
+                ? (press.y - SCROLL_EDGE) / SCROLL_EDGE
+                : press.y > bottom
+                  ? (press.y - bottom) / SCROLL_EDGE
+                  : 0;
+        if (speed !== 0) {
+            window.scrollBy({
+                top: Math.max(-1, Math.min(1, speed)) * SCROLL_SPEED,
+                behavior: "instant",
+            });
+            follow(press);
+        }
+        frameRef.current = requestAnimationFrame(autoScroll);
+    };
+
+    const startDrag = (press: Press) => {
+        if (pressRef.current !== press || press.active) return;
+        window.clearTimeout(press.timer);
+        press.active = true;
+        snapshotRef.current = live.current.items;
+        lastTargetRef.current = null;
+        setPicked(null);
+        hoverAt(null);
+        sceneRef.current?.beginDrag(press.slug, press.x, press.y);
+        if (hitRef.current) hitRef.current.style.cursor = "grabbing";
+        follow(press);
+        frameRef.current = requestAnimationFrame(autoScroll);
+    };
+
+    const release = () => {
+        window.clearTimeout(pressRef.current?.timer);
+        cancelAnimationFrame(frameRef.current);
+        pressRef.current = null;
+        sceneRef.current?.endDrag();
+    };
+
+    const cancelDrag = () => {
+        const snapshot = snapshotRef.current;
+        const wasActive = pressRef.current?.active;
+        release();
+        if (wasActive) suppressClickRef.current = true;
+        if (wasActive && snapshot) setOrder(snapshot);
+    };
+
+    const drop = async (press: Press) => {
+        const next = reorderAt(press);
+        const final = next ?? live.current.items;
+        if (next) setOrder(next);
+        release();
+        const snapshot = snapshotRef.current;
+        const sourceBook = snapshot?.find((b) => b.slug === press.slug);
+        const currentBook = final.find((b) => b.slug === press.slug);
+        if (!snapshot || !sourceBook || !currentBook) return;
+        const sameOrder =
+            snapshot.map((b) => b.slug).join() ===
+            final.map((b) => b.slug).join();
+        if (sameOrder && sourceBook.categoryId === currentBook.categoryId) {
+            return;
+        }
+        const affected = new Set([
+            sourceBook.categoryId,
+            currentBook.categoryId,
+        ]);
+        const groups: OrderGroup[] = [...affected].map((categoryId) => ({
+            categoryId,
+            slugs: final
+                .filter((b) => b.categoryId === categoryId)
+                .map((b) => b.slug),
+        }));
+        setSaveError(null);
+        try {
+            await saveBookOrder(groups);
+            await live.current.onChanged();
+        } catch (err) {
+            setOrder(snapshot);
+            setSaveError(
+                err instanceof Error
+                    ? err.message
+                    : "Не получилось сохранить порядок.",
+            );
+        }
+    };
+
+    const cancelRef = useRef(cancelDrag);
+    cancelRef.current = cancelDrag;
+
+    useEffect(() => {
+        const hit = hitRef.current;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && pressRef.current?.active) {
+                cancelRef.current();
+            }
+        };
+        const blockScroll = (e: TouchEvent) => {
+            if (pressRef.current?.active) e.preventDefault();
+        };
+        window.addEventListener("keydown", onKey);
+        hit?.addEventListener("touchmove", blockScroll, { passive: false });
+        return () => {
+            window.removeEventListener("keydown", onKey);
+            hit?.removeEventListener("touchmove", blockScroll);
+            window.clearTimeout(pressRef.current?.timer);
+            cancelAnimationFrame(frameRef.current);
+        };
+    }, []);
+
+    const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+        suppressClickRef.current = false;
+        if (!authorized || e.button !== 0) return;
+        const hit = sceneRef.current?.pick(e.clientX, e.clientY);
+        if (hit?.kind !== "book") return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const press: Press = {
+            slug: hit.slug,
+            pointerId: e.pointerId,
+            touch: e.pointerType === "touch",
+            startX: e.clientX,
+            startY: e.clientY,
+            x: e.clientX,
+            y: e.clientY,
+            active: false,
+            timer: 0,
+        };
+        if (press.touch) {
+            press.timer = window.setTimeout(
+                () => startDrag(press),
+                TOUCH_DELAY,
+            );
+        }
+        pressRef.current = press;
+    };
+
+    const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+        const press = pressRef.current;
+        if (!press) {
+            if (e.pointerType !== "touch") {
+                hoverAt(sceneRef.current?.pick(e.clientX, e.clientY) ?? null);
+            }
+            return;
+        }
+        if (press.pointerId !== e.pointerId) return;
+        press.x = e.clientX;
+        press.y = e.clientY;
+        if (press.active) {
+            follow(press);
+            return;
+        }
+        const moved = Math.hypot(
+            e.clientX - press.startX,
+            e.clientY - press.startY,
+        );
+        if (press.touch) {
+            if (moved > TOUCH_TOLERANCE) release();
+        } else if (moved > MOUSE_DISTANCE) {
+            startDrag(press);
+        }
+    };
+
+    const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+        const press = pressRef.current;
+        if (!press || press.pointerId !== e.pointerId) return;
+        if (!press.active) {
+            release();
+            return;
+        }
+        suppressClickRef.current = true;
+        setTimeout(() => {
+            suppressClickRef.current = false;
+        }, 0);
+        drop(press);
+    };
+
+    const closeCard = () => {
+        if (picked && document.activeElement?.closest(".book-card")) {
+            document
+                .querySelector<HTMLElement>(
+                    `.book-btn[data-slug="${CSS.escape(picked)}"]`,
+                )
+                ?.focus({ preventScroll: true });
+        }
+        setPicked(null);
+    };
+
+    const toggle = (slug: string | null) => {
+        if (slug && slug !== picked) setPicked(slug);
+        else closeCard();
+    };
+
+    const anchor = useCallback(() => {
+        if (!picked) return null;
+        if (sceneRef.current) return sceneRef.current.bookRect(picked);
+        return (
+            document
+                .querySelector(`.book-btn[data-slug="${CSS.escape(picked)}"]`)
+                ?.getBoundingClientRect() ?? null
+        );
+    }, [picked]);
+
+    const cardBook = picked ? books.find((b) => b.slug === picked) : undefined;
+
+    const openAdd = () => {
+        navigate("/book/add");
+    };
+    const onInk = () => (authorized ? openAdd() : setLoginOpen(true));
+    const openCreateCategory = () => setCategoryDialog({ mode: "create" });
+    const openEditCategory = (id: number) =>
+        setCategoryDialog({
+            mode: "edit",
+            category: categories.find((c) => c.id === id),
+        });
+
+    const onBookFocus = (slug: string) => {
+        sceneRef.current?.setHover(slug);
+        const dy = sceneRef.current?.scrollFor(slug);
+        if (dy != null) window.scrollBy({ top: dy, behavior: "instant" });
+    };
+
+    const latest = useRef({
+        toggle,
+        edit: openEditCategory,
+        focus: onBookFocus,
+    });
+    latest.current = { toggle, edit: openEditCategory, focus: onBookFocus };
+    const on = useMemo<ShelfHandlers>(
+        () => ({
+            toggle: (slug) => latest.current.toggle(slug),
+            edit: (id) => latest.current.edit(id),
+            focus: (slug) => latest.current.focus(slug),
+            blur: () => sceneRef.current?.setHover(null),
+        }),
+        [],
+    );
+
+    return (
+        <section
+            className={flat ? "bookcase bookcase--flat" : "bookcase"}
+            aria-label="Книжный шкаф"
+        >
+            {flat && <Inkwell onClick={onInk} />}
+            <LoginDialog
+                open={loginOpen}
+                onClose={() => setLoginOpen(false)}
+                onSuccess={() => {
+                    setLoginOpen(false);
+                    openAdd();
+                }}
+            />
+            {categoryDialog && (
+                <CategoryDialog
+                    mode={categoryDialog.mode}
+                    category={categoryDialog.category}
+                    onClose={() => setCategoryDialog(null)}
+                    onChanged={onChanged}
+                />
+            )}
+            {saveError && <p className="load-error">{saveError}</p>}
+            {flat ? (
+                <div className="bookcase-flat">
+                    {categories.map((category) => (
+                        <div className="flat-shelf" key={category.id}>
+                            {authorized ? (
+                                <button
+                                    type="button"
+                                    className="flat-name"
+                                    onClick={() =>
+                                        openEditCategory(category.id)
+                                    }
+                                >
+                                    {category.name}
+                                </button>
+                            ) : (
+                                <span className="flat-name">
+                                    {category.name}
+                                </span>
+                            )}
+                            {items
+                                .filter((b) => b.categoryId === category.id)
+                                .map((book) => {
+                                    const { w, h } = spineSize(book);
+                                    return (
+                                        <button
+                                            type="button"
+                                            className="book-btn"
+                                            key={book.slug}
+                                            data-slug={book.slug}
+                                            aria-label={`${book.title} — ${book.author}`}
+                                            style={{
+                                                width: w,
+                                                height: h,
+                                                background: book.spineColor,
+                                                color: book.spineTextColor,
+                                            }}
+                                            onClick={() => toggle(book.slug)}
+                                        >
+                                            <span>{book.title}</span>
+                                        </button>
+                                    );
+                                })}
+                        </div>
+                    ))}
+                    {authorized && (
+                        <button
+                            type="button"
+                            className="shelf-add shelf-add--flat"
+                            aria-label="Добавить категорию"
+                            onClick={openCreateCategory}
+                        >
+                            +
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div
+                    className="bookcase-body"
+                    ref={bodyRef}
+                    style={{ height: bodyH }}
+                >
+                    <canvas className="bookcase-canvas" ref={canvasRef} />
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: клавиатурный доступ через book-btn */}
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: клавиатурный доступ через book-btn */}
+                    <div
+                        className="bookcase-hit"
+                        ref={hitRef}
+                        onPointerDown={onPointerDown}
+                        onPointerMove={onPointerMove}
+                        onPointerUp={onPointerUp}
+                        onPointerCancel={cancelDrag}
+                        onPointerLeave={() =>
+                            !pressRef.current && hoverAt(null)
+                        }
+                        onContextMenu={(e) =>
+                            pressRef.current && e.preventDefault()
+                        }
+                        onClick={(e) => {
+                            if (suppressClickRef.current) {
+                                suppressClickRef.current = false;
+                                return;
+                            }
+                            const hit = sceneRef.current?.pick(
+                                e.clientX,
+                                e.clientY,
+                            );
+                            if (hit?.kind === "book") {
+                                toggle(hit.slug);
+                                return;
+                            }
+                            closeCard();
+                            if (hit?.kind === "plate" && authorized) {
+                                openEditCategory(hit.categoryId);
+                            }
+                        }}
+                    />
+                    <div className="bookcase-overlay" ref={overlayRef}>
+                        <button
+                            type="button"
+                            className="ink-btn"
+                            data-ink
+                            aria-label="Добавить книгу"
+                            onPointerEnter={() =>
+                                sceneRef.current?.setInkHover(true)
+                            }
+                            onPointerLeave={() =>
+                                sceneRef.current?.setInkHover(false)
+                            }
+                            onFocus={() => sceneRef.current?.setInkHover(true)}
+                            onBlur={() => sceneRef.current?.setInkHover(false)}
+                            onClick={onInk}
+                        />
+                        {info?.rows.map((row, i) => {
+                            const id = row.categoryId;
+                            if (id === null) {
+                                return (
+                                    authorized && (
+                                        <button
+                                            type="button"
+                                            className="shelf-add"
+                                            key="add"
+                                            data-add
+                                            aria-label="Добавить категорию"
+                                            onClick={openCreateCategory}
+                                        >
+                                            +
+                                        </button>
+                                    )
+                                );
+                            }
+                            const name = categories.find(
+                                (c) => c.id === id,
+                            )?.name;
+                            return (
+                                <Shelf
+                                    // biome-ignore lint/suspicious/noArrayIndexKey: ряд определяется позицией
+                                    key={`${id}:${i}`}
+                                    index={i}
+                                    id={id}
+                                    name={name}
+                                    slugs={row.slugs}
+                                    labels={labels}
+                                    authorized={authorized}
+                                    on={on}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+            {cardBook && (
+                <BookCard
+                    key={cardBook.slug}
+                    book={cardBook}
+                    anchor={anchor}
+                    onFrame={scene?.onFrame}
+                    onClose={closeCard}
+                />
+            )}
+        </section>
+    );
 }
+
+export default memo(Bookcase);
+
+const Shelf = memo(function Shelf({
+    index,
+    id,
+    name,
+    slugs,
+    labels,
+    authorized,
+    on,
+}: {
+    index: number;
+    id: number;
+    name: string | undefined;
+    slugs: string[];
+    labels: Map<string, string>;
+    authorized: boolean;
+    on: ShelfHandlers;
+}) {
+    return (
+        <>
+            {authorized ? (
+                <button
+                    type="button"
+                    className="plate-btn"
+                    data-row={index}
+                    onClick={() => on.edit(id)}
+                >
+                    {name}
+                </button>
+            ) : (
+                <span className="plate-label">{name}</span>
+            )}
+            {slugs.map((slug) => {
+                const label = labels.get(slug);
+                return (
+                    label && (
+                        <button
+                            type="button"
+                            className="book-btn"
+                            key={slug}
+                            data-slug={slug}
+                            aria-label={label}
+                            onFocus={() => on.focus(slug)}
+                            onBlur={on.blur}
+                            onClick={() => on.toggle(slug)}
+                        />
+                    )
+                );
+            })}
+        </>
+    );
+});
 
 function CategoryDialog({
     mode,
@@ -324,431 +837,82 @@ function CategoryDialog({
     );
 }
 
-function Bookcase({
-    books,
-    categories,
-    onChanged,
-}: {
-    books: Book[];
-    categories: Category[];
-    onChanged: () => Promise<void> | void;
-}) {
-    const navigate = useNavigate();
-    const rowRef = useRef<HTMLDivElement>(null);
-    const bodyRef = useRef<HTMLDivElement>(null);
-    const metrics = useShelfMetrics(bodyRef, rowRef);
-    const { authorized } = useAuth();
-    const [loginOpen, setLoginOpen] = useState(false);
-    const [range, setRange] = useState<[number, number]>([0, -1]);
-
-    const [local, setLocal] = useState<{
-        base: Book[];
-        items: Book[];
-    } | null>(null);
-    const items = local && local.base === books ? local.items : books;
-    const setOrder = (next: Book[]) => setLocal({ base: books, items: next });
-    const itemsRef = useRef(items);
-    itemsRef.current = items;
-
-    const [activeSlug, setActiveSlug] = useState<string | null>(null);
-    const [saveError, setSaveError] = useState<string | null>(null);
-    const [categoryDialog, setCategoryDialog] = useState<{
-        mode: "create" | "edit";
-        category?: Category;
-    } | null>(null);
-    const snapshotRef = useRef<Book[] | null>(null);
-    const posRef = useRef(new Map<string, { x: number; y: number }>());
-    const startCenterRef = useRef<{ x: number; y: number } | null>(null);
-    const ghostShrinkRef = useRef(0);
-    const lastTargetRef = useRef<{
-        categoryId: number;
-        insertAt: number;
-    } | null>(null);
-
-    const rows = useMemo(
-        () => packRows(categories, items, metrics.width, authorized),
-        [categories, items, metrics.width, authorized],
-    );
-    const layout = useMemo(() => shelfLayout(rows, metrics), [rows, metrics]);
-    const activeYaw = useMemo(() => {
-        if (!activeSlug) return 0;
-        for (const row of rows) {
-            const j = row.books.findIndex((b) => b.slug === activeSlug);
-            if (j !== -1) return shelfYaws(row.books, metrics.width)[j];
-        }
-        return 0;
-    }, [rows, activeSlug, metrics.width]);
-
-    useLayoutEffect(() => {
-        let rafId: number | null = null;
-        const update = () => {
-            rafId = null;
-            const body = bodyRef.current;
-            if (!body) return;
-            const containerTop =
-                body.getBoundingClientRect().top + window.scrollY;
-            const scrollTop = window.scrollY - containerTop;
-            const viewportH = window.innerHeight;
-            const buffer = window.innerHeight;
-            const next = visibleRange(
-                layout.tops,
-                layout.heights,
-                scrollTop,
-                viewportH,
-                buffer,
-            );
-            setRange((prev) =>
-                prev[0] === next[0] && prev[1] === next[1] ? prev : next,
-            );
-        };
-        const schedule = () => {
-            if (rafId !== null) return;
-            rafId = requestAnimationFrame(update);
-        };
-        update();
-        window.addEventListener("scroll", schedule, { passive: true });
-        window.addEventListener("resize", schedule);
-        return () => {
-            window.removeEventListener("scroll", schedule);
-            window.removeEventListener("resize", schedule);
-            if (rafId !== null) cancelAnimationFrame(rafId);
-        };
-    }, [layout]);
-
-    useLayoutEffect(() => {
-        if (!activeSlug && posRef.current.size === 0) return;
-        const body = bodyRef.current;
-        if (!body) return;
-        const els = Array.from(
-            body.querySelectorAll<HTMLElement>("[data-slug]"),
-        );
-        const next = new Map<string, { x: number; y: number }>();
-        for (const el of els) {
-            const slug = el.dataset.slug;
-            if (!slug) continue;
-            const row = el.offsetParent as HTMLElement | null;
-            const x = el.offsetLeft + (row?.offsetLeft ?? 0);
-            const y = el.offsetTop + (row?.offsetTop ?? 0);
-            next.set(slug, { x, y });
-            const prev = posRef.current.get(slug);
-            if (!prev) continue;
-            const dx = prev.x - x;
-            const dy = prev.y - y;
-            if (dx === 0 && dy === 0) continue;
-            el.getAnimations()
-                .find((a) => a.id === FLIP_ID)
-                ?.cancel();
-            el.animate(
-                [{ translate: `${dx}px ${dy}px` }, { translate: "none" }],
-                { id: FLIP_ID, duration: DROP_MS, easing: DROP_EASE },
-            );
-        }
-        posRef.current = activeSlug ? next : new Map();
-    });
-
-    const mouseSensor = useSensor(MouseSensor, {
-        activationConstraint: { distance: 5 },
-    });
-    const touchSensor = useSensor(TouchSensor, {
-        activationConstraint: { delay: 400, tolerance: 8 },
-    });
-    const activeSensors = useSensors(mouseSensor, touchSensor);
-    const noSensors = useSensors();
-    const sensors = authorized ? activeSensors : noSensors;
-
-    const onDragStart = (event: DragStartEvent) => {
-        const activeSlugStr = String(event.active.id);
-        setActiveSlug(activeSlugStr);
-        snapshotRef.current = itemsRef.current;
-        posRef.current.clear();
-        lastTargetRef.current = null;
-        const body = bodyRef.current;
-        const el = body?.querySelector<HTMLElement>(
-            `[data-slug="${CSS.escape(activeSlugStr)}"]`,
-        );
-        if (el) {
-            const row = el.offsetParent as HTMLElement | null;
-            startCenterRef.current = {
-                x: el.offsetLeft + (row?.offsetLeft ?? 0) + el.offsetWidth / 2,
-                y: el.offsetTop + (row?.offsetTop ?? 0) + el.offsetHeight / 2,
-            };
-            const marginLeft = parseFloat(getComputedStyle(el).marginLeft);
-            ghostShrinkRef.current =
-                el.offsetWidth + (Number.isNaN(marginLeft) ? 0 : marginLeft);
-        } else {
-            startCenterRef.current = null;
-        }
-    };
-
-    const reorderFor = (
-        delta: { x: number; y: number },
-        slug: string,
-    ): Book[] | null => {
-        const body = bodyRef.current;
-        const start = startCenterRef.current;
-        if (!body || !start) return null;
-        const target = resolveDrop(
-            body,
-            itemsRef.current,
-            slug,
-            categories,
-            start.x + delta.x,
-            start.y + delta.y,
-            ghostShrinkRef.current,
-        );
-        if (!target) return null;
-        const prev = lastTargetRef.current;
-        if (
-            prev &&
-            prev.categoryId === target.categoryId &&
-            prev.insertAt === target.insertAt
-        ) {
-            return null;
-        }
-        lastTargetRef.current = target;
-        const active = itemsRef.current.find((b) => b.slug === slug);
-        if (!active) return null;
-        const rest = itemsRef.current.filter((b) => b.slug !== slug);
-        const next = rest.slice();
-        next.splice(target.insertAt, 0, {
-            ...active,
-            categoryId: target.categoryId,
-        });
-        return next;
-    };
-
-    const onDragMove = (event: DragMoveEvent) => {
-        const next = reorderFor(event.delta, String(event.active.id));
-        if (next) setOrder(next);
-    };
-
-    const onDragCancel = () => {
-        startCenterRef.current = null;
-        setActiveSlug(null);
-        lastTargetRef.current = null;
-        if (snapshotRef.current) setOrder(snapshotRef.current);
-    };
-
-    const onDragEnd = async (event: DragEndEvent) => {
-        const activeSlugStr = String(event.active.id);
-        const final =
-            reorderFor(event.delta, activeSlugStr) ?? itemsRef.current;
-        startCenterRef.current = null;
-        lastTargetRef.current = null;
-        setActiveSlug(null);
-        if (final !== itemsRef.current) setOrder(final);
-        const snapshot = snapshotRef.current;
-        const sourceBook = snapshot?.find((b) => b.slug === activeSlugStr);
-        const currentBook = final.find((b) => b.slug === activeSlugStr);
-        if (!snapshot || !sourceBook || !currentBook) return;
-        const sameOrder =
-            snapshot.map((b) => b.slug).join() ===
-            final.map((b) => b.slug).join();
-        if (sameOrder && sourceBook.categoryId === currentBook.categoryId) {
-            return;
-        }
-        const affected = new Set([
-            sourceBook.categoryId,
-            currentBook.categoryId,
-        ]);
-        const groups: OrderGroup[] = [...affected].map((categoryId) => ({
-            categoryId,
-            slugs: final
-                .filter((b) => b.categoryId === categoryId)
-                .map((b) => b.slug),
-        }));
-        setSaveError(null);
-        try {
-            await saveBookOrder(groups);
-            await onChanged();
-        } catch (err) {
-            setOrder(snapshot);
-            setSaveError(
-                err instanceof Error
-                    ? err.message
-                    : "Не получилось сохранить порядок.",
-            );
-        }
-    };
-
-    const openAdd = () => {
-        navigate("/book/add");
-    };
-    const openCreateCategory = () => setCategoryDialog({ mode: "create" });
-    const openEditCategory = (id: number) =>
-        setCategoryDialog({
-            mode: "edit",
-            category: categories.find((c) => c.id === id),
-        });
-
-    const first = Math.max(0, Math.min(range[0], rows.length - 1));
-    const last =
-        rows.length === 0
-            ? -1
-            : Math.max(first, Math.min(range[1], rows.length - 1));
-    const topSpacer = layout.tops[first] ?? 0;
-    const bottomSpacer = Math.max(
-        0,
-        layout.total - ((layout.tops[last] ?? 0) + (layout.heights[last] ?? 0)),
-    );
-    const activeBook = activeSlug
-        ? (items.find((b) => b.slug === activeSlug) ?? null)
-        : null;
-
-    const renderRow = (row: Row, i: number): ReactNode => {
-        const yaws = shelfYaws(row.books, metrics.width);
-        const isAdd = row.categoryId === null;
-        const categoryId = row.categoryId;
-        const hasPlate = categoryId !== null;
-        return (
-            <div
-                className={
-                    isAdd
-                        ? "bookcase-shelf bookcase-shelf--add"
-                        : "bookcase-shelf"
-                }
-                key={i}
-                style={{ height: layout.heights[i] }}
-            >
-                <div
-                    className="bookcase-books"
-                    ref={i === first ? rowRef : undefined}
-                    data-row={i}
-                    data-category={categoryId ?? undefined}
-                >
-                    {isAdd && authorized && (
-                        <button
-                            type="button"
-                            className="shelf-add"
-                            onClick={openCreateCategory}
-                        >
-                            +
-                        </button>
-                    )}
-                    {row.books.map((book, j) => (
-                        <BookSpine
-                            key={book.slug}
-                            book={book}
-                            yaw={yaws[j]}
-                            rank={
-                                row.books.length -
-                                Math.round(
-                                    Math.abs(j - (row.books.length - 1) / 2),
-                                )
-                            }
-                            sortable={authorized}
-                        />
-                    ))}
-                    {hasPlate &&
-                        (authorized ? (
-                            <button
-                                type="button"
-                                className="shelf-plate"
-                                onClick={() => openEditCategory(categoryId)}
-                            >
-                                {
-                                    categories.find((c) => c.id === categoryId)
-                                        ?.name
-                                }
-                            </button>
-                        ) : (
-                            <span className="shelf-plate">
-                                {
-                                    categories.find((c) => c.id === categoryId)
-                                        ?.name
-                                }
-                            </span>
-                        ))}
-                </div>
-                <div className="bookcase-board" aria-hidden="true" />
-            </div>
-        );
-    };
-
-    const visible: ReactNode[] = [];
-    let i = first;
-    while (i <= last) {
-        const row = rows[i];
-        if (row.categoryId === null) {
-            visible.push(renderRow(row, i));
-            i += 1;
-            continue;
-        }
-        const categoryId = row.categoryId;
-        const groupRows: Row[] = [row];
-        const startIndex = i;
-        let j = i + 1;
-        while (j <= last && rows[j].categoryId === categoryId) {
-            groupRows.push(rows[j]);
-            j += 1;
-        }
-        visible.push(
-            <div className="bookcase-category" key={`cat:${categoryId}`}>
-                {groupRows.map((r, k) => renderRow(r, startIndex + k))}
-            </div>,
-        );
-        i = j;
+function put(
+    el: HTMLElement,
+    box: Box | null | undefined,
+    w: number,
+    h: number,
+    min: number,
+) {
+    if (!box) {
+        el.style.display = "none";
+        return;
     }
-
-    return (
-        <section className="bookcase" aria-label="Книжный шкаф">
-            <Inkwell
-                onClick={() => (authorized ? openAdd() : setLoginOpen(true))}
-            />
-            <LoginDialog
-                open={loginOpen}
-                onClose={() => setLoginOpen(false)}
-                onSuccess={() => {
-                    setLoginOpen(false);
-                    openAdd();
-                }}
-            />
-            {categoryDialog && (
-                <CategoryDialog
-                    mode={categoryDialog.mode}
-                    category={categoryDialog.category}
-                    onClose={() => setCategoryDialog(null)}
-                    onChanged={onChanged}
-                />
-            )}
-            {saveError && <p className="load-error">{saveError}</p>}
-            <div className="bookcase-top" aria-hidden="true" />
-            <DndContext
-                sensors={sensors}
-                onDragStart={onDragStart}
-                onDragMove={onDragMove}
-                onDragEnd={onDragEnd}
-                onDragCancel={onDragCancel}
-            >
-                <div
-                    className={
-                        activeSlug
-                            ? "bookcase-body bookcase-body--dragging"
-                            : "bookcase-body"
-                    }
-                    ref={bodyRef}
-                >
-                    <span
-                        className="bookcase-wall bookcase-wall-left"
-                        aria-hidden="true"
-                    />
-                    <span
-                        className="bookcase-wall bookcase-wall-right"
-                        aria-hidden="true"
-                    />
-                    <div style={{ height: topSpacer }} aria-hidden="true" />
-                    {visible}
-                    <div style={{ height: bottomSpacer }} aria-hidden="true" />
-                </div>
-                <DragOverlay dropAnimation={dropAnimation}>
-                    {activeBook ? (
-                        <BookSpinePreview book={activeBook} yaw={activeYaw} />
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
-            <div className="bookcase-plinth" aria-hidden="true" />
-        </section>
-    );
+    let { x, y, w: bw, h: bh } = box;
+    if (bw < min) {
+        x -= (min - bw) / 2;
+        bw = min;
+    }
+    if (bh < min) {
+        y -= (min - bh) / 2;
+        bh = min;
+    }
+    if (x + bw <= 0 || x >= w || y + bh <= 0 || y >= h) {
+        x = Math.min(Math.max(x, 0), w - 1);
+        y = Math.min(Math.max(y, 0), h - 1);
+        bw = bh = 1;
+    }
+    el.style.display = "";
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    el.style.width = `${bw}px`;
+    el.style.height = `${bh}px`;
 }
 
-export default memo(Bookcase);
+function insertTarget(
+    items: Book[],
+    categories: Category[],
+    activeSlug: string,
+    slot: Slot,
+): DropTarget {
+    const { categoryId, slugs, index: k } = slot;
+    const rest = items.filter((b) => b.slug !== activeSlug);
+    let insertAt: number;
+    if (k < slugs.length) {
+        insertAt = rest.findIndex((b) => b.slug === slugs[k]);
+    } else if (slugs.length > 0) {
+        insertAt =
+            rest.findIndex((b) => b.slug === slugs[slugs.length - 1]) + 1;
+    } else {
+        let lastInCat = -1;
+        rest.forEach((b, idx) => {
+            if (b.categoryId === categoryId) lastInCat = idx;
+        });
+        if (lastInCat !== -1) {
+            insertAt = lastInCat + 1;
+        } else {
+            const destPos = categories.findIndex((c) => c.id === categoryId);
+            const nextIdx = rest.findIndex(
+                (b) =>
+                    categories.findIndex((c) => c.id === b.categoryId) >
+                    destPos,
+            );
+            insertAt = nextIdx === -1 ? rest.length : nextIdx;
+        }
+    }
+    return { categoryId, insertAt };
+}
+
+function reorder(
+    items: Book[],
+    slug: string,
+    target: DropTarget,
+): Book[] | null {
+    const active = items.find((b) => b.slug === slug);
+    if (!active) return null;
+    const next = items.filter((b) => b.slug !== slug);
+    next.splice(target.insertAt, 0, {
+        ...active,
+        categoryId: target.categoryId,
+    });
+    return next;
+}
