@@ -12,7 +12,7 @@ export default function HomePage() {
 
     return (
         <main>
-            <section className="hero">
+            <section className="hero" data-scene-follow>
                 <LogoIcon className="hero-logo" size={128} />
                 <RibbonTitle />
                 <div className="hero-actions">

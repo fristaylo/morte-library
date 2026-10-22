@@ -1,4 +1,5 @@
 import {
+    type CSSProperties,
     memo,
     type PointerEvent as ReactPointerEvent,
     useCallback,
@@ -19,12 +20,15 @@ import {
     saveBookOrder,
 } from "../../api";
 import { useAuth } from "../../hooks/useAuth";
+import { useHour } from "../../hooks/useHour";
 import BookCard from "../BookCard/BookCard";
 import Dialog from "../Dialogs/Dialog";
 import LoginDialog from "../Dialogs/LoginDialog/LoginDialog";
 import Inkwell from "../Inkwell/Inkwell";
+import { DialFace, fmt } from "../TimeDial/TimeDial";
 import {
     type Box,
+    type ClockFace,
     createShelfScene,
     type Hit,
     type SceneInfo,
@@ -40,6 +44,7 @@ const TOUCH_TOLERANCE = 8;
 const SCROLL_EDGE = 60;
 const SCROLL_SPEED = 20;
 const MIN_TAP = 44;
+const CLOCK_FADE_MS = 200;
 
 interface Press {
     slug: string;
@@ -91,6 +96,7 @@ function Bookcase({
     const [info, setInfo] = useState<SceneInfo | null>(null);
     const [size, setSize] = useState({ width: 1024, cw: 1024, ch: 800 });
     const [loginOpen, setLoginOpen] = useState(false);
+    const [clockOpen, setClockOpen] = useState(false);
     const [picked, setPicked] = useState<string | null>(null);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [categoryDialog, setCategoryDialog] = useState<{
@@ -185,6 +191,9 @@ function Bookcase({
         for (const el of layer.querySelectorAll<HTMLElement>("[data-ink]")) {
             put(el, view.ink, w, h, 0);
         }
+        for (const el of layer.querySelectorAll<HTMLElement>("[data-clock]")) {
+            put(el, view.clock, w, h, 0);
+        }
     }, []);
 
     useLayoutEffect(() => {
@@ -211,12 +220,21 @@ function Bookcase({
         let prev = "";
         const apply = () => {
             const style = getComputedStyle(root);
-            const case1 = style.getPropertyValue("--case-1").trim();
-            const case2 = style.getPropertyValue("--case-2").trim();
-            const key = `${case1}|${case2}`;
+            const read = (name: string) => style.getPropertyValue(name).trim();
+            const case1 = read("--case-1");
+            const case2 = read("--case-2");
+            const dial = {
+                edge: read("--case-edge"),
+                line: read("--line"),
+                faint: read("--ink-faint"),
+                gold: read("--gold"),
+                soft: read("--ink-soft"),
+            };
+            const key = `${case1}|${case2}|${Object.values(dial).join("|")}`;
             if (key === prev) return;
             prev = key;
             scene.setCaseColors(case1, case2);
+            scene.setClockColors(dial);
         };
         apply();
         const observer = new MutationObserver(apply);
@@ -529,6 +547,14 @@ function Bookcase({
                     onChanged={onChanged}
                 />
             )}
+            {scene && <ClockSync scene={scene} />}
+            {scene && clockOpen && (
+                <ClockView
+                    scene={scene}
+                    size={size}
+                    onClosed={() => setClockOpen(false)}
+                />
+            )}
             {saveError && <p className="load-error">{saveError}</p>}
             {flat ? (
                 <div className="bookcase-flat">
@@ -642,6 +668,28 @@ function Bookcase({
                             onBlur={() => sceneRef.current?.setInkHover(false)}
                             onClick={onInk}
                         />
+                        <button
+                            type="button"
+                            className="clock-btn"
+                            data-clock
+                            aria-label="Часы: время суток"
+                            aria-haspopup="dialog"
+                            onPointerEnter={() =>
+                                sceneRef.current?.setClockHover(true)
+                            }
+                            onPointerLeave={() =>
+                                sceneRef.current?.setClockHover(false)
+                            }
+                            onFocus={(e) =>
+                                sceneRef.current?.setClockHover(
+                                    e.currentTarget.matches(":focus-visible"),
+                                )
+                            }
+                            onBlur={() =>
+                                sceneRef.current?.setClockHover(false)
+                            }
+                            onClick={() => setClockOpen(true)}
+                        />
                         {info?.rows.map((row, i) => {
                             const id = row.categoryId;
                             if (id === null) {
@@ -746,6 +794,169 @@ const Shelf = memo(function Shelf({
         </>
     );
 });
+
+function ClockSync({ scene }: { scene: ShelfScene }) {
+    const { hour } = useHour();
+    useEffect(() => {
+        scene.setClockHour(hour);
+    }, [scene, hour]);
+    return null;
+}
+
+function ClockView({
+    scene,
+    size,
+    onClosed,
+}: {
+    scene: ShelfScene;
+    size: object;
+    onClosed: () => void;
+}) {
+    const { hour, isOverride, setOverride } = useHour();
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const faceRef = useRef<SVGSVGElement>(null);
+    const stage = useRef<"opening" | "open" | "closing">("opening");
+    const [face, setFace] = useState<ClockFace | null>(null);
+    const [shown, setShown] = useState(false);
+
+    useEffect(() => {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const root = document.documentElement;
+        root.style.overflow = "hidden";
+        root.style.scrollbarGutter = "stable";
+        root.classList.add("clock-zoom");
+        const items = Array.from(
+            document.querySelectorAll<HTMLElement>("[data-scene-follow]"),
+            (el) => {
+                const { left, top } = el.getBoundingClientRect();
+                el.style.transformOrigin = "0 0";
+                return { el, left, top };
+            },
+        );
+        scene.onPose(() => {
+            const h = scene.homography();
+            for (const { el, left, top } of items) {
+                el.style.transform = `translate(${-left}px, ${-top}px) ${h} translate(${left}px, ${top}px)`;
+            }
+        });
+        dialog.showModal();
+        dialog.getBoundingClientRect();
+        dialog.classList.add("is-on");
+        scene.openClock(() => {
+            stage.current = "open";
+            setFace(scene.clockFace());
+            setShown(true);
+        });
+        return () => {
+            scene.onPose(null);
+            for (const { el } of items) {
+                el.style.transform = "";
+                el.style.transformOrigin = "";
+            }
+            root.classList.remove("clock-zoom");
+            root.style.overflow = "";
+            root.style.scrollbarGutter = "";
+            dialog.classList.remove("is-on");
+            if (dialog.open) dialog.close();
+        };
+    }, [scene]);
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: пересчёт при смене размера холста
+    useEffect(() => {
+        if (stage.current === "open") setFace(scene.clockFace());
+    }, [scene, size]);
+
+    useEffect(() => {
+        if (shown) faceRef.current?.focus({ preventScroll: true });
+    }, [shown]);
+
+    const close = () => {
+        const dialog = dialogRef.current;
+        if (stage.current !== "open" || !dialog) return;
+        stage.current = "closing";
+        setShown(false);
+        dialog.classList.remove("is-on");
+        const finish = () => {
+            dialog.close();
+            document
+                .querySelector<HTMLElement>("[data-clock]")
+                ?.focus({ preventScroll: true });
+            onClosed();
+        };
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        scene.closeClock(() =>
+            reduce ? setTimeout(finish, CLOCK_FADE_MS) : finish(),
+        );
+    };
+
+    return (
+        <dialog
+            ref={dialogRef}
+            className="clock-view"
+            aria-label="Часы: время суток"
+            style={
+                {
+                    "--clock-r": `${face?.r ?? scene.clockRadius()}px`,
+                } as CSSProperties
+            }
+            onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    close();
+                }
+            }}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) close();
+            }}
+        >
+            <div
+                className={shown ? "clock-ui is-shown" : "clock-ui"}
+                inert={!shown}
+            >
+                {face && (
+                    <>
+                        <DialFace
+                            ref={faceRef}
+                            hour={hour}
+                            onChange={setOverride}
+                            style={{
+                                left: face.x - face.r,
+                                top: face.y - face.r,
+                                width: 2 * face.r,
+                                height: 2 * face.r,
+                            }}
+                        />
+                        <div
+                            className="clock-panel"
+                            style={{ left: face.x, top: face.y + face.r + 8 }}
+                        >
+                            <p className="time-readout clock-readout">
+                                {fmt(hour)}
+                            </p>
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                disabled={!isOverride}
+                                onClick={() => setOverride(null)}
+                            >
+                                Вернуть текущее время
+                            </button>
+                        </div>
+                    </>
+                )}
+                <button
+                    type="button"
+                    className="clock-close"
+                    aria-label="Закрыть"
+                    onClick={close}
+                >
+                    ×
+                </button>
+            </div>
+        </dialog>
+    );
+}
 
 function CategoryDialog({
     mode,

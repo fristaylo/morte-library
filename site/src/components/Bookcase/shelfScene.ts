@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { type Book, type Category, spineImageUrl } from "../../api";
+import { createClock, type DialColors, FACE_K } from "./clock3d";
 import { createInkwell, legacyLighting } from "./inkwell3d";
 
 const SHELF_MAX = 936;
@@ -28,9 +29,15 @@ const LID_FRONT = 12;
 const PLINTH_H = 34;
 const INK_Z = -70;
 const INK_RIGHT = 90;
+const CLOCK_SHIFT = 25;
 const LID_Y = -BOARD;
 const LID_TOP = LID_Y + LID_H;
 const FOCUS_Z = -90;
+const CLOCK_DIST = 420;
+const CLOCK_FACE = 0.66;
+const PANEL_H = 64;
+const PANEL_PAD = 24;
+const FLY_MS = 900;
 const MIN_ROW = 290;
 const PLATE_H = 22;
 const SPREAD = 3.2;
@@ -43,6 +50,12 @@ const PLATE_INSET = 1.2;
 const PLATE_T = 3;
 const HINGE_DROP = 3.3;
 const HINGE_Z = 4;
+const VIEW_CORNERS = [
+    [-1, 1],
+    [1, 1],
+    [1, -1],
+    [-1, -1],
+];
 const FOLD = Math.PI / 2;
 const FOLD_K = 280;
 const FOLD_C = 2 * Math.sqrt(FOLD_K) * 0.55;
@@ -119,6 +132,27 @@ interface Projection {
     plates: (Box | null)[];
     add: Box | null;
     ink: Box;
+    clock: Box;
+}
+
+export interface ClockFace {
+    x: number;
+    y: number;
+    r: number;
+}
+
+interface Pose {
+    position: THREE.Vector3;
+    quaternion: THREE.Quaternion;
+    fov: number;
+    offsetY: number;
+}
+
+interface Flight {
+    t0: number;
+    from: Pose;
+    target: () => Pose;
+    done: () => void;
 }
 
 export interface Slot {
@@ -139,6 +173,15 @@ export interface ShelfScene {
     scrollFor(slug: string): number | null;
     setHover(slug: string | null): void;
     setInkHover(on: boolean): void;
+    setClockHover(on: boolean): void;
+    setClockHour(hour: number): void;
+    setClockColors(colors: DialColors): void;
+    openClock(onDone: () => void): void;
+    closeClock(onDone: () => void): void;
+    clockFace(): ClockFace;
+    clockRadius(): number;
+    homography(): string;
+    onPose(cb: (() => void) | null): void;
     setPicked(slug: string | null): void;
     pick(clientX: number, clientY: number): Hit | null;
     worldPerPx(width: number): number;
@@ -367,6 +410,14 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     const ink = createInkwell(inkBase, reduceMotion, envRT.texture);
     scene.add(ink.group);
     ink.group.updateMatrixWorld();
+    const clockBase = new THREE.Vector3(
+        CLOCK_SHIFT - inkX(SHELF_MAX),
+        LID_TOP,
+        INK_Z,
+    );
+    const clock = createClock(clockBase, reduceMotion, envRT.texture);
+    scene.add(clock.group);
+    clock.group.updateMatrixWorld();
 
     const focus = new THREE.Vector3(0, 0, FOCUS_Z);
     const active = new Set<BookM>();
@@ -380,6 +431,7 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     const plateBox = new THREE.Box3();
     const shadowV = new THREE.Vector3();
     const proj = new THREE.Vector3();
+    const corners = VIEW_CORNERS.map(() => new THREE.Vector3());
     const tint = new THREE.Color();
     const scratch = new Float32Array(16);
     let factors = [DAY_1, DAY_2];
@@ -427,6 +479,11 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     let ghostFor: BookM | null = null;
     let inkHovered = false;
     let frameCb: (() => void) | null = null;
+    let poseCb: (() => void) | null = null;
+    let clockMode: "closed" | "opening" | "open" | "closing" = "closed";
+    let flight: Flight | null = null;
+    const normal = newPose();
+    const mid = newPose();
 
     canvas.style.visibility = "hidden";
     const onMotion = () => {
@@ -462,6 +519,9 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         inkBase.x = inkX(w);
         ink.group.position.copy(inkBase);
         ink.group.updateMatrixWorld();
+        clockBase.x = CLOCK_SHIFT - inkX(w);
+        clock.group.position.copy(clockBase);
+        clock.group.updateMatrixWorld();
     }
 
     function request() {
@@ -483,15 +543,147 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         raf = 0;
         const dt = Math.min((t - lastT) / 1000, 1 / 30) || 1 / 60;
         lastT = t;
+        stepFlight(performance.now());
         if (active.size) stepAnim(dt);
         const platesBusy = stepPlates(performance.now(), dt);
         const inkBusy = ink.step(performance.now());
+        const clockBusy = clock.step(performance.now());
         if (inkBusy) dirty = true;
         if (dirty) renderer.shadowMap.needsUpdate = true;
         dirty = false;
         renderer.render(scene, camera);
         frameCb?.();
-        if (active.size || inkBusy || platesBusy) request();
+        if (
+            active.size ||
+            inkBusy ||
+            platesBusy ||
+            clockBusy ||
+            flight !== null
+        ) {
+            request();
+        }
+    }
+
+    function readPose(into: Pose): Pose {
+        into.position.copy(camera.position);
+        into.quaternion.copy(camera.quaternion);
+        into.fov = camera.fov;
+        into.offsetY = camera.view?.enabled ? camera.view.offsetY : 0;
+        return into;
+    }
+
+    function applyPose(p: Pose) {
+        camera.position.copy(p.position);
+        camera.quaternion.copy(p.quaternion);
+        camera.fov = p.fov;
+        if (p.offsetY) camera.setViewOffset(cw, ch, 0, p.offsetY, cw, ch);
+        else camera.clearViewOffset();
+        camera.updateMatrixWorld();
+        poseCb?.();
+    }
+
+    function clockPose(): Pose {
+        const center = clock.dialCenter(new THREE.Vector3());
+        const radius = clock.dialEdge(new THREE.Vector3()).distanceTo(center);
+        const yaw = clock.group.rotation.y;
+        const pose = newPose();
+        pose.position
+            .set(Math.sin(yaw), 0, Math.cos(yaw))
+            .multiplyScalar(CLOCK_DIST)
+            .add(center);
+        pose.quaternion.setFromRotationMatrix(
+            new THREE.Matrix4().lookAt(pose.position, center, camera.up),
+        );
+        pose.fov =
+            (2 *
+                Math.atan(
+                    (radius * ch * FACE_K) / (2 * clockRadius() * CLOCK_DIST),
+                ) *
+                180) /
+            Math.PI;
+        return pose;
+    }
+
+    function fly(target: () => Pose, done: () => void) {
+        if (reduceMotion.matches) {
+            applyPose(target());
+            done();
+        } else {
+            flight = {
+                t0: performance.now(),
+                from: readPose(newPose()),
+                target,
+                done,
+            };
+        }
+        request();
+    }
+
+    function stepFlight(now: number) {
+        const f = flight;
+        if (!f) return;
+        const k = Math.min(1, (now - f.t0) / FLY_MS);
+        const e = easeInOutCubic(k);
+        const to = f.target();
+        mid.position.lerpVectors(f.from.position, to.position, e);
+        mid.quaternion.slerpQuaternions(f.from.quaternion, to.quaternion, e);
+        mid.fov = f.from.fov + (to.fov - f.from.fov) * e;
+        mid.offsetY = f.from.offsetY + (to.offsetY - f.from.offsetY) * e;
+        applyPose(mid);
+        if (k < 1) return;
+        flight = null;
+        f.done();
+    }
+
+    function openClock(onDone: () => void) {
+        if (clockMode !== "closed") return;
+        clockMode = "opening";
+        clock.setOpen(true);
+        show(true);
+        fly(clockPose, () => {
+            clockMode = "open";
+            onDone();
+        });
+    }
+
+    function closeClock(onDone: () => void) {
+        if (clockMode !== "open") return;
+        clockMode = "closing";
+        clock.setOpen(false);
+        fly(
+            () => normal,
+            () => {
+                clockMode = "closed";
+                updateCamera();
+                onDone();
+            },
+        );
+    }
+
+    function clockRadius(): number {
+        const room = ch - 2 * (PANEL_H + PANEL_PAD);
+        return Math.min(CLOCK_FACE * Math.min(cw, ch), room) / 2;
+    }
+
+    function clockFace(): ClockFace {
+        const { x, y } = toPx(clock.dialCenter(proj));
+        const e = toPx(clock.dialEdge(proj));
+        return { x, y, r: Math.hypot(e.x - x, e.y - y) * FACE_K };
+    }
+
+    function anchorPlane() {
+        VIEW_CORNERS.forEach(([x, y], i) => {
+            raycaster.setFromCamera(ndc.set(x, y), camera);
+            raycaster.ray.intersectPlane(wall, corners[i]);
+        });
+    }
+
+    function homography(): string {
+        const quad = corners.map((c) => {
+            const v = toPx(proj.copy(c));
+            return [v.x, v.y];
+        });
+        return matrix3d(quad, cw, ch);
     }
 
     function stepAnim(dt: number) {
@@ -627,11 +819,17 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         camera.setViewOffset(cw, ch, 0, ((ch / 2) * rise) / halfH, cw, ch);
         camera.updateMatrixWorld();
         eye.copy(camera.position);
+        readPose(normal);
+        anchorPlane();
+        if (clockMode === "open") applyPose(clockPose());
         fitShadow();
         dirty = true;
         const wpp = worldPerPx(caseW);
         const inkTop = (ink.box.max.y + inkBase.y - LID_TOP) / wpp;
-        show(top + height / wpp > 0 && top - inkTop < ch);
+        show(
+            clockMode !== "closed" ||
+                (top + height / wpp > 0 && top - inkTop < ch),
+        );
     }
 
     function fitShadow() {
@@ -1261,18 +1459,13 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
                       FRONT_Z,
                   )
                 : null;
-        const { min, max } = ink.box;
-        const corners = [min.x, max.x].flatMap((x) =>
-            [min.y, max.y].flatMap((y) =>
-                [min.z, max.z].map((z) => {
-                    const v = new THREE.Vector3(x, y, z).applyMatrix4(
-                        ink.group.matrixWorld,
-                    );
-                    return [v.x, v.y, v.z];
-                }),
-            ),
-        );
-        return { books, plates, add, ink: boxOf(corners) };
+        return {
+            books,
+            plates,
+            add,
+            ink: boxOf(worldCorners(ink.box, ink.group)),
+            clock: boxOf(worldCorners(clock.box, clock.group)),
+        };
     }
 
     function bookRect(slug: string): DOMRect | null {
@@ -1471,8 +1664,26 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         request();
     }
 
+    function setClockHover(on: boolean) {
+        clock.setHover(on);
+        request();
+    }
+
+    function setClockHour(hour: number) {
+        clock.setHour(hour);
+        request();
+    }
+
+    function setClockColors(colors: DialColors) {
+        clock.setColors(colors).then(request);
+    }
+
     function onFrame(cb: (() => void) | null) {
         frameCb = cb;
+    }
+
+    function onPose(cb: (() => void) | null) {
+        poseCb = cb;
     }
 
     function dispose() {
@@ -1484,8 +1695,11 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         for (const p of plates) removePlate(p);
         plateMats.body.dispose();
         plateMats.hinge.dispose();
+        flight = null;
         scene.remove(ink.group);
         ink.dispose();
+        scene.remove(clock.group);
+        clock.dispose();
         envRT.dispose();
         for (const t of Object.values(T)) t.dispose();
         for (const m of [...litMats, depthMat, bookDepthMat]) m.dispose();
@@ -1501,6 +1715,15 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         scrollFor,
         setHover,
         setInkHover,
+        setClockHover,
+        setClockHour,
+        setClockColors,
+        openClock,
+        closeClock,
+        clockFace,
+        clockRadius,
+        homography,
+        onPose,
         setPicked,
         pick,
         worldPerPx,
@@ -1721,8 +1944,55 @@ function inkX(shelfW: number): number {
     return shelfW / 2 + SIDE + LID_OVER - INK_RIGHT;
 }
 
+function matrix3d(quad: number[][], w: number, h: number): string {
+    const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = quad;
+    const sx = x0 - x1 + x2 - x3;
+    const sy = y0 - y1 + y2 - y3;
+    const dx1 = x1 - x2;
+    const dx2 = x3 - x2;
+    const dy1 = y1 - y2;
+    const dy2 = y3 - y2;
+    const det = dx1 * dy2 - dx2 * dy1;
+    const g = (sx * dy2 - dx2 * sy) / det;
+    const k = (dx1 * sy - sx * dy1) / det;
+    const a = x1 - x0 + g * x1;
+    const b = x3 - x0 + k * x3;
+    const d = y1 - y0 + g * y1;
+    const e = y3 - y0 + k * y3;
+    return `matrix3d(${[a / w, d / w, 0, g / w, b / h, e / h, 0, k / h, 0, 0, 1, 0, x0, y0, 0, 1].join(",")})`;
+}
+
 function plateText(r: RowM): string {
     return `${r.name.toUpperCase()}${r.multi ? ` · ${r.k}` : ""}`;
+}
+
+function newPose(): Pose {
+    return {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+        fov: 0,
+        offsetY: 0,
+    };
+}
+
+function easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+function worldCorners(
+    { min, max }: THREE.Box3,
+    group: THREE.Object3D,
+): number[][] {
+    return [min.x, max.x].flatMap((x) =>
+        [min.y, max.y].flatMap((y) =>
+            [min.z, max.z].map((z) => {
+                const v = new THREE.Vector3(x, y, z).applyMatrix4(
+                    group.matrixWorld,
+                );
+                return [v.x, v.y, v.z];
+            }),
+        ),
+    );
 }
 
 function rgbFactor(css: string, day: number[]): number[] {

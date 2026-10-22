@@ -92,24 +92,7 @@ export function createInkwell(
         uRp: { value: new THREE.Vector4(0, 0, 9, 0) },
     };
 
-    const glass = new THREE.MeshStandardMaterial({
-        color: 0xd4e3f2,
-        roughness: 0.04,
-        metalness: 0,
-        transparent: true,
-        opacity: 0.16,
-        depthWrite: false,
-        envMap: env,
-        envMapIntensity: 0.6,
-    });
-    glass.customProgramCacheKey = () => "glass-cheap";
-    glass.onBeforeCompile = (sh) => {
-        legacyLighting(sh);
-        sh.fragmentShader = sh.fragmentShader.replace(
-            "#include <opaque_fragment>",
-            FRESNEL,
-        );
-    };
+    const glass = glassMaterial(env);
     const inkWallMat = new THREE.MeshStandardMaterial({
         vertexColors: true,
         roughness: 0.35,
@@ -549,3 +532,25 @@ vec3 objectNormal = normalize(vec3(-(hx - inkHt) / 0.8, 1.0, -(hz - inkHt) / 0.8
 vec3 objectTangent = vec3(tangent.xyz);
 #endif
 `;
+
+export function glassMaterial(env: THREE.Texture): THREE.MeshStandardMaterial {
+    const glass = new THREE.MeshStandardMaterial({
+        color: 0xd4e3f2,
+        roughness: 0.04,
+        metalness: 0,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+        envMap: env,
+        envMapIntensity: 0.6,
+    });
+    glass.customProgramCacheKey = () => "glass-cheap";
+    glass.onBeforeCompile = (sh) => {
+        legacyLighting(sh);
+        sh.fragmentShader = sh.fragmentShader.replace(
+            "#include <opaque_fragment>",
+            FRESNEL,
+        );
+    };
+    return glass;
+}

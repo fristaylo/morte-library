@@ -21,6 +21,10 @@
     pointer-events: none;
 }
 
+.clock-zoom .bookcase-canvas {
+    z-index: 11;
+}
+
 .bookcase-hit {
     position: absolute;
     inset: 0;
@@ -40,7 +44,8 @@
 
 .book-btn,
 .plate-btn,
-.ink-btn {
+.ink-btn,
+.clock-btn {
     position: absolute;
     top: 0;
     left: 0;
@@ -55,9 +60,96 @@
     }
 }
 
-.ink-btn {
+.ink-btn,
+.clock-btn {
     pointer-events: auto;
     cursor: pointer;
+}
+
+.clock-view {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    background: transparent;
+
+    &::backdrop {
+        background: radial-gradient(
+            circle at 50% 50%,
+            transparent calc(var(--clock-r, 42vmin) * 1.1),
+            rgba(8, 12, 18, 0.4) calc(var(--clock-r, 42vmin) * 1.8)
+        );
+        opacity: 0;
+        transition: opacity 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    &.is-on::backdrop {
+        opacity: 1;
+    }
+}
+
+.clock-ui {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+
+    &.is-shown {
+        opacity: 1;
+    }
+
+    > * {
+        pointer-events: auto;
+    }
+
+    .time-face {
+        position: absolute;
+    }
+}
+
+.clock-panel {
+    position: absolute;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 14px;
+    width: max-content;
+    max-width: 100vw;
+    transform: translateX(-50%);
+}
+
+.clock-readout {
+    color: #fff;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
+.clock-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(8, 12, 18, 0.45);
+    font-size: 1.6rem;
+    line-height: 1;
+    color: #fff;
+    cursor: pointer;
+
+    &:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+    }
 }
 
 .plate-btn {
@@ -181,5 +273,11 @@
 @media (max-width: 640px) {
     .bookcase {
         --inset: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .clock-view::backdrop {
+        transition-duration: 0.2s;
     }
 }
