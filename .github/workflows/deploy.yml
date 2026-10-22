@@ -64,7 +64,7 @@ jobs:
                   host: ${{ secrets.HOST }}
                   username: root
                   key: ${{ secrets.SSH_KEY }}
-                  source: docker-compose.yml,init-letsencrypt.sh
+                  source: docker-compose.yml
                   target: ~/ugolok-morte
 
             - name: Deploy over SSH
@@ -101,8 +101,7 @@ jobs:
                       echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
                       export IMAGE API_IMAGE
                       docker compose pull
-                      chmod +x init-letsencrypt.sh
-                      if ! ./init-letsencrypt.sh; then
+                      if ! docker compose up -d --remove-orphans; then
                         echo "===== deploy failed ====="
                         free -m || true
                         docker compose ps -a || true
@@ -110,4 +109,9 @@ jobs:
                         docker compose logs --tail=300 mysql || true
                         exit 1
                       fi
+                      mkdir -p /etc/caddy/sites
+                      [ -f /etc/caddy/Caddyfile ] || echo 'import sites/*' > /etc/caddy/Caddyfile
+                      printf 'lib.agoncharenko.dev {\n\treverse_proxy 127.0.0.1:8081\n}\n' > /etc/caddy/sites/morte.caddy
+                      docker run -d --name caddy --network host --restart always -v /etc/caddy:/etc/caddy -v caddy_data:/data -v caddy_config:/config caddy:2 2>/dev/null \
+                        || docker exec caddy caddy reload --config /etc/caddy/Caddyfile
                       docker image prune -f
