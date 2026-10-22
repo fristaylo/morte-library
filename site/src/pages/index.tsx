@@ -1,5 +1,6 @@
 import { useRevalidator } from "react-router";
 import Bookcase from "../components/Bookcase/Bookcase";
+import RibbonTitle from "../components/RibbonTitle/RibbonTitle";
 import { useLibrary, useRandomBook } from "../hooks/useLibrary";
 import { LogoIcon } from "../icons";
 import "./index.scss";
@@ -13,7 +14,7 @@ export default function HomePage() {
         <main>
             <section className="hero">
                 <LogoIcon className="hero-logo" size={128} />
-                <h1 className="hero-title">Библиотека Морте</h1>
+                <RibbonTitle />
                 <div className="hero-actions">
                     <button
                         type="button"

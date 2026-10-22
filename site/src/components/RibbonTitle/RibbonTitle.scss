@@ -1,0 +1,41 @@
+.hero-title {
+    margin: 0;
+    color: var(--surface);
+    font-family: var(--font-hand);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 7.5vw, 5rem);
+    letter-spacing: 0.01em;
+
+    svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        filter: drop-shadow(0 0.25em 0.3em rgba(50, 72, 100, 0.22));
+    }
+
+    .hero-band {
+        fill: var(--accent);
+    }
+
+    .hero-tail {
+        fill: color-mix(in srgb, var(--accent) 84%, #1b2836);
+    }
+
+    .hero-fold {
+        fill: color-mix(in srgb, var(--accent) 50%, #1b2836);
+    }
+
+    text {
+        fill: var(--surface);
+    }
+
+    &:not(.is-ready) {
+        visibility: hidden;
+    }
+}
+
+@media (max-width: 560px) {
+    .hero-title {
+        font-size: 10vw;
+    }
+}
