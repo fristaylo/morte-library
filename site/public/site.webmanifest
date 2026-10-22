@@ -1,0 +1,22 @@
+{
+    "name": "Библиотека Морте",
+    "short_name": "Морте",
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#b98497",
+    "background_color": "#dba7a9",
+    "icons": [
+        {
+            "src": "/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}
