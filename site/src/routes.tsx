@@ -3,29 +3,36 @@ import { type LoaderFunction, Outlet, Route, useLocation } from "react-router";
 import ErrorElement, { NotFound } from "./components/ErrorElement/ErrorElement";
 import Header from "./components/Header/Header";
 import { rootLoader } from "./hooks/useLibrary";
+import HomePage from "./pages/index";
 
-const pages = import.meta.glob<{ default: ComponentType }>(
+const pages = import.meta.glob<{ default: ComponentType }>([
     "./pages/**/index.tsx",
-    { eager: true },
-);
+    "!./pages/index.tsx",
+]);
 const loaders = import.meta.glob<{ default: LoaderFunction }>(
     "./pages/**/loader.ts",
-    { eager: true },
 );
 
-const pageRoutes = Object.entries(pages).map(([file, { default: Page }]) => {
+const pageError = (
+    <ErrorElement message="Не получилось открыть книгу — попробуйте позже." />
+);
+
+const pageRoutes = Object.entries(pages).map(([file, loadPage]) => {
     const dir = file.slice("./pages".length, -"/index.tsx".length);
     const path = dir.replace(/\[(.+?)\]/g, ":$1").slice(1);
+    const loadLoader = loaders[`./pages${dir}/loader.ts`];
     return (
         <Route
             key={file}
-            index={path === ""}
-            path={path || undefined}
-            element={<Page />}
-            loader={loaders[`./pages${dir}/loader.ts`]?.default}
-            errorElement={
-                <ErrorElement message="Не получилось открыть книгу — попробуйте позже." />
-            }
+            path={path}
+            lazy={async () => {
+                const [page, loader] = await Promise.all([
+                    loadPage(),
+                    loadLoader?.(),
+                ]);
+                return { Component: page.default, loader: loader?.default };
+            }}
+            errorElement={pageError}
         />
     );
 });
@@ -38,6 +45,7 @@ export const DefaultRoutes = (
         errorElement={<RootError />}
         HydrateFallback={Header}
     >
+        <Route index element={<HomePage />} errorElement={pageError} />
         {pageRoutes}
         <Route path="*" element={<NotFound />} />
     </Route>

@@ -1,9 +1,11 @@
+import { lazy, Suspense } from "react";
 import { useRevalidator } from "react-router";
-import Bookcase from "../components/Bookcase/Bookcase";
 import RibbonTitle from "../components/RibbonTitle/RibbonTitle";
 import { useLibrary, useRandomBook } from "../hooks/useLibrary";
 import { LogoIcon } from "../icons";
 import "./index.scss";
+
+const Bookcase = lazy(() => import("../components/Bookcase/Bookcase"));
 
 export default function HomePage() {
     const { books, categories } = useLibrary();
@@ -43,11 +45,13 @@ export default function HomePage() {
                 id="shelf"
                 aria-label="Полки с книгами"
             >
-                <Bookcase
-                    books={books}
-                    categories={categories}
-                    onChanged={revalidate}
-                />
+                <Suspense fallback={null}>
+                    <Bookcase
+                        books={books}
+                        categories={categories}
+                        onChanged={revalidate}
+                    />
+                </Suspense>
             </section>
         </main>
     );

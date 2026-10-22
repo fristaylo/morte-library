@@ -38,6 +38,7 @@ const CLOCK_FACE = 0.66;
 const PANEL_H = 64;
 const PANEL_PAD = 24;
 const FLY_MS = 900;
+const SPINE_FLUSH_MS = 250;
 const MIN_ROW = 290;
 const PLATE_H = 22;
 const SPREAD = 3.2;
@@ -343,7 +344,7 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.shadowMap.autoUpdate = false;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     const scene = new THREE.Scene();
     const envRT = makeEnvironment(renderer);
     scene.environment = envRT.texture;
@@ -353,7 +354,7 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     scene.add(hemi, sun, sun.target);
     scene.environmentIntensity = 0.25;
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(1536, 1536);
     sun.shadow.radius = 3;
     sun.shadow.bias = -0.0005;
     sun.shadow.normalBias = 1.1;
@@ -455,6 +456,8 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     let raf = 0;
     let lastT = 0;
     let disposed = false;
+    let compiling = false;
+    let compiled = false;
     let fontsOk = false;
     let bookA: InstAttrs | null = null;
     let models: BookM[] = [];
@@ -472,6 +475,9 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
     let caseParts: CasePart[] = [];
     let caseBuiltW = 0;
     let imageGen = 0;
+    let spineTimer = 0;
+    let fitKey = "";
+    let fittedY = 0;
     let dirty = true;
     let ghostShell: THREE.InstancedMesh | null = null;
     let ghostPages: THREE.InstancedMesh | null = null;
@@ -541,6 +547,15 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
 
     function frame(t: number) {
         raf = 0;
+        if (!compiled) {
+            if (compiling) return;
+            compiling = true;
+            renderer.compileAsync(scene, camera).finally(() => {
+                compiled = true;
+                request();
+            });
+            return;
+        }
         const dt = Math.min((t - lastT) / 1000, 1 / 30) || 1 / 60;
         lastT = t;
         stepFlight(performance.now());
@@ -822,8 +837,13 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         readPose(normal);
         anchorPlane();
         if (clockMode === "open") applyPose(clockPose());
-        fitShadow();
-        dirty = true;
+        const key = `${cw},${ch},${caseW},${shelfW},${spanY}`;
+        if (key !== fitKey || Math.abs(focus.y - fittedY) > spanY * 0.3) {
+            fitKey = key;
+            fittedY = focus.y;
+            fitShadow();
+            dirty = true;
+        }
         const wpp = worldPerPx(caseW);
         const inkTop = (ink.box.max.y + inkBase.y - LID_TOP) / wpp;
         show(
@@ -840,8 +860,8 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         const sh = sun.shadow;
         sh.updateMatrices(sun);
         const inv = sh.camera.matrixWorldInverse;
-        const y0 = focus.y - spanY * 0.62 - 150;
-        const y1 = focus.y + spanY * 0.62 + 150;
+        const y0 = focus.y - spanY * 0.95 - 150;
+        const y1 = focus.y + spanY * 0.95 + 150;
         const v = shadowV;
         let l = Infinity;
         let r = -Infinity;
@@ -935,6 +955,7 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
                 for (const attr of Object.values(bookA))
                     attr.needsUpdate = true;
                 atlas.tex.needsUpdate = true;
+                dirty = true;
             }
         }
         if (ghostFor && (relayout || redraw.length)) showGhost(ghostFor);
@@ -1203,14 +1224,20 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         img.onload = () => {
             if (gen !== imageGen || disposed) return;
             drawSpine(a.ctx, b, p, a.P, img);
-            a.tex.needsUpdate = true;
-            request();
+            if (spineTimer) return;
+            spineTimer = window.setTimeout(() => {
+                spineTimer = 0;
+                a.tex.needsUpdate = true;
+                request();
+            }, SPINE_FLUSH_MS);
         };
         img.src = spineImageUrl(b.book);
     }
 
     function disposeBooks() {
         imageGen++;
+        clearTimeout(spineTimer);
+        spineTimer = 0;
         active.clear();
         for (const m of [shell, pages, ghostShell, ghostPages]) {
             if (!m) continue;
@@ -1378,7 +1405,7 @@ export function createShelfScene(canvas: HTMLCanvasElement): ShelfScene | null {
         cw = Math.max(1, Math.floor(width));
         ch = Math.max(1, Math.floor(heightPx));
         caseW = Math.max(1, caseWidth);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         renderer.setSize(cw, ch, false);
         const next = shelfWidth(caseW);
         if (next !== shelfW) {
@@ -2031,14 +2058,29 @@ function packAtlas(books: BookM[], renderer: THREE.WebGLRenderer): Atlas {
     const P = 4;
     const maxT = Math.min(4096, renderer.capabilities.maxTextureSize);
     let s = 2;
-    let lay = packTiles(books, s, P, maxT);
+    let area = 0;
+    let widest = 0;
+    for (const b of books) {
+        const ow = Math.round(b.w * s) + 2 * P;
+        area += ow * (Math.round(b.h * s) + 2 * P);
+        widest = Math.max(widest, ow);
+    }
+    let W = Math.min(
+        maxT,
+        2 ** Math.ceil(Math.log2(Math.max(4, Math.sqrt(area), widest))),
+    );
+    let lay = packTiles(books, s, P, W, maxT);
+    while (!lay && W < maxT) {
+        W *= 2;
+        lay = packTiles(books, s, P, W, maxT);
+    }
     while (!lay && s > 0.3) {
         s *= 0.9;
-        lay = packTiles(books, s, P, maxT);
+        lay = packTiles(books, s, P, W, maxT);
     }
     if (!lay) lay = { pos: [], H: 4 };
     const cv = document.createElement("canvas");
-    cv.width = maxT;
+    cv.width = W;
     cv.height = lay.H;
     const ctx = cv.getContext("2d") as CanvasRenderingContext2D;
     books.forEach((b, i) => {
@@ -2046,9 +2088,9 @@ function packAtlas(books: BookM[], renderer: THREE.WebGLRenderer): Atlas {
         ctx.fillStyle = b.book.spineColor;
         ctx.fillRect(p.x, p.y, p.tw + 2 * P, p.th + 2 * P);
         b.rect = [
-            (p.x + P) / maxT,
+            (p.x + P) / W,
             1 - (p.y + P + p.th) / lay.H,
-            p.tw / maxT,
+            p.tw / W,
             p.th / lay.H,
         ];
     });
@@ -2058,7 +2100,13 @@ function packAtlas(books: BookM[], renderer: THREE.WebGLRenderer): Atlas {
     return { tex, ctx, pos: lay.pos, P };
 }
 
-function packTiles(books: BookM[], s: number, P: number, maxT: number) {
+function packTiles(
+    books: BookM[],
+    s: number,
+    P: number,
+    W: number,
+    maxT: number,
+) {
     const order = books
         .map((_, i) => i)
         .sort((a, b) => books[b].h - books[a].h);
@@ -2073,7 +2121,7 @@ function packTiles(books: BookM[], s: number, P: number, maxT: number) {
         const th = Math.round(books[i].h * s);
         const ow = tw + 2 * P;
         const oh = th + 2 * P;
-        if (x + ow > maxT) {
+        if (x + ow > W) {
             x = 0;
             y += rowH;
             rowH = 0;

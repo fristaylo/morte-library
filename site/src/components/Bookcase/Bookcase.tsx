@@ -83,6 +83,7 @@ function Bookcase({
     const { authorized } = useAuth();
     const bodyRef = useRef<HTMLDivElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
+    const marksRef = useRef<HTMLDivElement>(null);
     const hitRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sceneRef = useRef<ShelfScene | null>(null);
@@ -172,43 +173,50 @@ function Bookcase({
         if (body) sceneRef.current?.setTop(body.getBoundingClientRect().top);
     }, []);
 
-    const place = useCallback(() => {
-        const layer = overlayRef.current;
+    const place = useCallback((moveOnly = false) => {
+        const overlay = overlayRef.current;
+        const marks = marksRef.current;
+        const body = bodyRef.current;
         const current = sceneRef.current;
-        if (!layer || !current) return;
+        if (!overlay || !current) return;
         const view = current.project();
-        const w = layer.clientWidth;
-        const h = layer.clientHeight;
-        for (const el of layer.querySelectorAll<HTMLElement>("[data-slug]")) {
-            put(el, view.books.get(el.dataset.slug ?? ""), w, h, 0);
+        const bounds = { w: overlay.clientWidth, h: overlay.clientHeight };
+        for (const el of overlay.querySelectorAll<HTMLElement>("[data-ink]")) {
+            put(el, fit(view.ink, 0, bounds));
         }
-        for (const el of layer.querySelectorAll<HTMLElement>("[data-row]")) {
-            put(el, view.plates[Number(el.dataset.row)], w, h, 0);
+        for (const el of overlay.querySelectorAll<HTMLElement>(
+            "[data-clock]",
+        )) {
+            put(el, fit(view.clock, 0, bounds));
         }
-        for (const el of layer.querySelectorAll<HTMLElement>("[data-add]")) {
-            put(el, view.add, w, h, MIN_TAP);
+        if (moveOnly || !marks || !body) return;
+        const { left, top } = body.getBoundingClientRect();
+        for (const el of marks.querySelectorAll<HTMLElement>("[data-slug]")) {
+            put(el, fit(view.books.get(el.dataset.slug ?? ""), 0), left, top);
         }
-        for (const el of layer.querySelectorAll<HTMLElement>("[data-ink]")) {
-            put(el, view.ink, w, h, 0);
+        for (const el of marks.querySelectorAll<HTMLElement>("[data-row]")) {
+            put(el, fit(view.plates[Number(el.dataset.row)], 0), left, top);
         }
-        for (const el of layer.querySelectorAll<HTMLElement>("[data-clock]")) {
-            put(el, view.clock, w, h, 0);
+        for (const el of marks.querySelectorAll<HTMLElement>("[data-add]")) {
+            put(el, fit(view.add, MIN_TAP), left, top);
         }
     }, []);
 
     useLayoutEffect(() => {
         if (!scene) return;
         setInfo(scene.resize(size.cw, size.ch, size.width));
-        syncScroll();
-    }, [scene, size.cw, size.ch, size.width, syncScroll]);
+    }, [scene, size.cw, size.ch, size.width]);
 
-    useLayoutEffect(place);
+    useLayoutEffect(() => {
+        syncScroll();
+        place();
+    });
 
     useLayoutEffect(() => {
         if (!scene) return;
         const onScroll = () => {
             syncScroll();
-            place();
+            place(true);
         };
         window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
@@ -504,6 +512,7 @@ function Bookcase({
         });
 
     const onBookFocus = (slug: string) => {
+        syncScroll();
         sceneRef.current?.setHover(slug);
         const dy = sceneRef.current?.scrollFor(slug);
         if (dy != null) window.scrollBy({ top: dy, behavior: "instant" });
@@ -690,6 +699,8 @@ function Bookcase({
                             }
                             onClick={() => setClockOpen(true)}
                         />
+                    </div>
+                    <div className="bookcase-marks" ref={marksRef}>
                         {info?.rows.map((row, i) => {
                             const id = row.categoryId;
                             if (id === null) {
@@ -1048,35 +1059,41 @@ function CategoryDialog({
     );
 }
 
-function put(
-    el: HTMLElement,
+function fit(
     box: Box | null | undefined,
-    w: number,
-    h: number,
     min: number,
-) {
+    bounds?: { w: number; h: number },
+): Box | null {
+    if (!box) return null;
+    let { x, y, w, h } = box;
+    if (w < min) {
+        x -= (min - w) / 2;
+        w = min;
+    }
+    if (h < min) {
+        y -= (min - h) / 2;
+        h = min;
+    }
+    if (
+        bounds &&
+        (x + w <= 0 || x >= bounds.w || y + h <= 0 || y >= bounds.h)
+    ) {
+        x = Math.min(Math.max(x, 0), bounds.w - 1);
+        y = Math.min(Math.max(y, 0), bounds.h - 1);
+        w = h = 1;
+    }
+    return { x, y, w, h };
+}
+
+function put(el: HTMLElement, box: Box | null, dx = 0, dy = 0) {
     if (!box) {
         el.style.display = "none";
         return;
     }
-    let { x, y, w: bw, h: bh } = box;
-    if (bw < min) {
-        x -= (min - bw) / 2;
-        bw = min;
-    }
-    if (bh < min) {
-        y -= (min - bh) / 2;
-        bh = min;
-    }
-    if (x + bw <= 0 || x >= w || y + bh <= 0 || y >= h) {
-        x = Math.min(Math.max(x, 0), w - 1);
-        y = Math.min(Math.max(y, 0), h - 1);
-        bw = bh = 1;
-    }
     el.style.display = "";
-    el.style.transform = `translate(${x}px, ${y}px)`;
-    el.style.width = `${bw}px`;
-    el.style.height = `${bh}px`;
+    el.style.transform = `translate(${box.x - dx}px, ${box.y - dy}px)`;
+    el.style.width = `${box.w}px`;
+    el.style.height = `${box.h}px`;
 }
 
 function insertTarget(

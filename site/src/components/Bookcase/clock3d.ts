@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { glassMaterial, legacyLighting } from "./inkwell3d";
 
 const DIAL_Y = 161;
@@ -71,6 +72,7 @@ export function createClock(
     buildGlass(group, mats);
     const carousel = buildCarousel(group, mats);
     const hand = buildHand(group, mats);
+    for (const part of [group, carousel, hand]) mergeMeshes(part);
     const face = put(
         group,
         new THREE.CircleGeometry(FACE_Q, 96).translate(0, DIAL_Y, DIAL_Z),
@@ -236,6 +238,7 @@ function makeMaterials(env: THREE.Texture): Mats {
                 color: 0xf6f0e0,
                 roughness: 0.6,
                 alphaTest: 0.5,
+                map: new THREE.Texture(),
             }),
         ),
         glass: glassMaterial(env),
@@ -528,6 +531,38 @@ function inlay(
             mat,
             false,
         );
+    }
+}
+
+function mergeMeshes(parent: THREE.Object3D) {
+    const batches = new Map<string, THREE.Mesh[]>();
+    for (const o of parent.children) {
+        if (!(o instanceof THREE.Mesh)) continue;
+        const key = [
+            (o.material as THREE.Material).uuid,
+            o.castShadow,
+            o.receiveShadow,
+            o.renderOrder,
+        ].join();
+        batches.set(key, [...(batches.get(key) ?? []), o]);
+    }
+    for (const meshes of batches.values()) {
+        const geos = meshes.map((o) => {
+            o.updateMatrix();
+            const geo = o.geometry.clone().applyMatrix4(o.matrix);
+            return geo.index ? geo.toNonIndexed() : geo;
+        });
+        const [first] = meshes;
+        const merged = new THREE.Mesh(mergeGeometries(geos), first.material);
+        merged.castShadow = first.castShadow;
+        merged.receiveShadow = first.receiveShadow;
+        merged.renderOrder = first.renderOrder;
+        for (const o of meshes) {
+            o.geometry.dispose();
+            o.removeFromParent();
+        }
+        for (const geo of geos) geo.dispose();
+        parent.add(merged);
     }
 }
 

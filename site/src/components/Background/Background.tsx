@@ -16,11 +16,14 @@ type Light = NonNullable<ReturnType<typeof useDaylight>>;
 
 type Renderer = NonNullable<ReturnType<typeof createRenderer>>;
 
+type Job = NonNullable<ReturnType<typeof startLink>>;
+
 const STAR_DRIFT = 1600 / 12;
 const ROWS = 24;
 const Y0 = 384;
 const PAR_STRENGTH = 120;
-const PAR_EASE = 2;
+const PAR_EASE = 3;
+const RENDER_SCALE = 0.5;
 const DEPTH = [0.05, 0.12, 0.22, 0.36, 0.52, 0.76, 1];
 
 export default function Background() {
@@ -29,16 +32,13 @@ export default function Background() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const rendererRef = useRef<Renderer | null>(null);
     const shiftRef = useRef(starShift(hour));
-    const [failed, setFailed] = useState(false);
+    const [ready, setReady] = useState(false);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const renderer = createRenderer(canvas, () => setFailed(true));
-        if (!renderer) {
-            setFailed(true);
-            return;
-        }
+        const renderer = createRenderer(canvas, setReady);
+        if (!renderer) return;
         rendererRef.current = renderer;
         return () => {
             rendererRef.current = null;
@@ -56,7 +56,7 @@ export default function Background() {
         <>
             {/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: canvas is not focusable */}
             <canvas ref={canvasRef} className="site-bg" aria-hidden="true" />
-            {failed && light && (
+            {!ready && light && (
                 <div
                     className="site-bg"
                     aria-hidden="true"
@@ -85,11 +85,60 @@ function pack(...colors: Rgb[]) {
     return new Float32Array(colors.flat().map((v) => v / 255));
 }
 
-function createRenderer(canvas: HTMLCanvasElement, onLost: () => void) {
+function createRenderer(
+    canvas: HTMLCanvasElement,
+    onState: (ok: boolean) => void,
+) {
     const gl = canvas.getContext("webgl2", { antialias: false });
     if (!gl) return null;
-    const program = link(gl);
-    if (!program) return null;
+    const job = startLink(gl);
+    if (!job) return null;
+    const ext = gl.getExtension("KHR_parallel_shader_compile");
+    let inner: ReturnType<typeof start> | null = null;
+    let queued: [Light, number, number] | null = null;
+    let poll = 0;
+
+    const finish = () => {
+        const program = finishLink(gl, job);
+        if (!program) return;
+        inner = start(gl, canvas, program, onState);
+        if (queued) inner.set(...queued);
+    };
+    const check = () => {
+        if (
+            ext &&
+            !gl.getProgramParameter(job.program, ext.COMPLETION_STATUS_KHR)
+        ) {
+            poll = requestAnimationFrame(check);
+        } else {
+            finish();
+        }
+    };
+    check();
+
+    return {
+        set(l: Light, hour: number, shift: number) {
+            if (inner) inner.set(l, hour, shift);
+            else queued = [l, hour, shift];
+        },
+        dispose() {
+            cancelAnimationFrame(poll);
+            if (inner) {
+                inner.dispose();
+                return;
+            }
+            gl.deleteProgram(job.program);
+            for (const s of job.shaders) gl.deleteShader(s);
+        },
+    };
+}
+
+function start(
+    gl: WebGL2RenderingContext,
+    canvas: HTMLCanvasElement,
+    program: WebGLProgram,
+    onState: (ok: boolean) => void,
+) {
     const u = (n: string) => gl.getUniformLocation(program, n);
     const rows = buildRows();
     const texture = gl.createTexture();
@@ -120,6 +169,7 @@ function createRenderer(canvas: HTMLCanvasElement, onLost: () => void) {
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const par = new Float32Array(14);
     let ready = false;
+    let drawn = false;
     let lost = false;
     let raf = 0;
     let last = 0;
@@ -131,7 +181,7 @@ function createRenderer(canvas: HTMLCanvasElement, onLost: () => void) {
     };
     const resize = () => {
         const r = canvas.getBoundingClientRect();
-        const k = Math.min(devicePixelRatio || 1, 2);
+        const k = Math.min(devicePixelRatio || 1, 2) * RENDER_SCALE;
         canvas.width = Math.max(1, Math.round(r.width * k));
         canvas.height = Math.max(1, Math.round(r.height * k));
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -144,14 +194,14 @@ function createRenderer(canvas: HTMLCanvasElement, onLost: () => void) {
     const onContextLost = (e: Event) => {
         e.preventDefault();
         lost = true;
-        onLost();
+        onState(false);
     };
     const frame = (now: number) => {
         raf = 0;
         const dt = last ? Math.min((now - last) / 1000, 0.25) : 1 / 60;
         last = now;
         mv += (tg - mv) * (reduced ? 1 : 1 - Math.exp(-dt * PAR_EASE));
-        if (Math.abs(tg - mv) * PAR_STRENGTH < 0.02) mv = tg;
+        if (Math.abs(tg - mv) * PAR_STRENGTH < 0.3) mv = tg;
         draw();
         if (mv !== tg) wake();
         else last = 0;
@@ -166,6 +216,10 @@ function createRenderer(canvas: HTMLCanvasElement, onLost: () => void) {
         });
         gl.uniform2fv(uPar, par);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+        if (!drawn) {
+            drawn = true;
+            onState(true);
+        }
     };
 
     canvas.addEventListener("webglcontextlost", onContextLost);
@@ -240,33 +294,34 @@ function scrollRatio() {
     return scrollY / Math.max(1, max);
 }
 
-function link(gl: WebGL2RenderingContext) {
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+function startLink(gl: WebGL2RenderingContext) {
+    const vs = gl.createShader(gl.VERTEX_SHADER);
+    const fs = gl.createShader(gl.FRAGMENT_SHADER);
     const program = gl.createProgram();
-    if (vs && fs) {
-        gl.attachShader(program, vs);
-        gl.attachShader(program, fs);
-        gl.linkProgram(program);
-    }
-    gl.deleteShader(vs);
-    gl.deleteShader(fs);
-    if (vs && fs && gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        return program;
-    }
-    console.error(`link: ${gl.getProgramInfoLog(program)}`);
-    gl.deleteProgram(program);
-    return null;
+    if (!vs || !fs) return null;
+    gl.shaderSource(vs, VERT);
+    gl.shaderSource(fs, FRAG);
+    gl.compileShader(vs);
+    gl.compileShader(fs);
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    return { program, shaders: [vs, fs] };
 }
 
-function compile(gl: WebGL2RenderingContext, type: number, src: string) {
-    const shader = gl.createShader(type);
-    if (!shader) return null;
-    gl.shaderSource(shader, src);
-    gl.compileShader(shader);
-    if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
-    console.error(`compile: ${gl.getShaderInfoLog(shader)}`);
-    gl.deleteShader(shader);
+function finishLink(gl: WebGL2RenderingContext, job: Job) {
+    let ok = true;
+    for (const s of job.shaders) {
+        if (gl.getShaderParameter(s, gl.COMPILE_STATUS)) continue;
+        console.error(`compile: ${gl.getShaderInfoLog(s)}`);
+        ok = false;
+    }
+    for (const s of job.shaders) gl.deleteShader(s);
+    if (ok && gl.getProgramParameter(job.program, gl.LINK_STATUS)) {
+        return job.program;
+    }
+    console.error(`link: ${gl.getProgramInfoLog(job.program)}`);
+    gl.deleteProgram(job.program);
     return null;
 }
 
@@ -625,7 +680,7 @@ void main() {
     vec2 qk = q[k];
     float d = qk.y - h[k];
     float cov = clamp(.5 + d / (px + abs(dh[k])), 0., 1.);
-    float sl = (ridgeH(k, qk.x + 14.) - ridgeH(k, qk.x - 14.)) / 28.;
+    float sl = dh[k] / px;
     vec3 lc = surface(rcol(k, qk), k, d, qk, sl, px);
     lc = mix(lc, airC, min(1., AIR[k] * uFog));
     col = mix(col, lc, OP[k] * cov);
