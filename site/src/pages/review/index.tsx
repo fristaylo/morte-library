@@ -5,7 +5,7 @@ import LoginDialog from "../../components/Dialogs/LoginDialog/LoginDialog";
 import { useAuth } from "../../hooks/useAuth";
 import { linkProps, navigate } from "../../lib/router";
 import { sanitizeHtml } from "../../lib/sanitizeHtml";
-import "./ReviewPage.scss";
+import "./index.scss";
 
 function ReviewPage({ book, detail }: { book: Book; detail?: BookDetail }) {
     const dateRead = formatDateRead(book);

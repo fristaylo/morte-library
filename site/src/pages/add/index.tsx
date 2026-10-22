@@ -12,8 +12,8 @@ import Dialog from "../../components/Dialogs/Dialog";
 import RichEditor from "../../components/RichEditor/RichEditor";
 import { navigate } from "../../lib/router";
 import { toAvif } from "../../lib/toAvif";
-import "../ReviewPage/ReviewPage.scss";
-import "./AddPage.scss";
+import "../review/index.scss";
+import "./index.scss";
 
 const STARS = Array.from({ length: 10 }, (_, i) => i + 1);
 
