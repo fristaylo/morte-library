@@ -23,6 +23,10 @@
     pointer-events: none;
 }
 
+.clock-zoom body {
+    overflow: clip;
+}
+
 .clock-zoom .bookcase-canvas {
     z-index: 11;
 }
