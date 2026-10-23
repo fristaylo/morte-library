@@ -290,7 +290,8 @@ function start(
 }
 
 function scrollRatio() {
-    const max = document.documentElement.scrollHeight - innerHeight;
+    const root = document.documentElement;
+    const max = root.scrollHeight - root.clientHeight;
     return scrollY / Math.max(1, max);
 }
 
