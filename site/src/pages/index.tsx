@@ -36,7 +36,7 @@ export default function HomePage() {
                         disabled={!onRandom}
                         onClick={onRandom}
                     >
-                        Случайная книга
+                        Случайная
                     </button>
                 </div>
             </section>
